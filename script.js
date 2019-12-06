@@ -1,5 +1,6 @@
 const searchForm = document.querySelector('#search-form');
-const movie =document.querySelector('#movies');
+const movie = document.querySelector('#movies');
+
 function apiSearch(event) {
     event.preventDefault();
     const searchText = document.querySelector('.form-control').value;
@@ -13,17 +14,20 @@ function apiSearch(event) {
             let inner = '';
 
             //вывод результата
-            output.results.forEach(function(item){
+            output.results.forEach(function (item) {
                 // выведит значение которое существует
                 let nameItem = item.name || item.title;
                 //add адаптив верстку к пустой строке
-                inner += `<div class="col-12 col-md-4 col-xl-3">${nameItem} + </div>`;
+                inner += `<div class="col-12 col-md-4 col-xl-3">${nameItem}ddd</div>`;
             });
 
             movie.innerHTML = inner;
             console.log(output);
-    })
-        .catch()
+        })
+        .catch(function (reason) {
+            movie.innerHTML = 'Упс, что то пошло не так!';
+            console.log('error:' + reason.status);
+        })
     ;
 }
 
@@ -37,16 +41,18 @@ function requestApi(url) {
         request.open('GET', url);
 
         request.addEventListener('load', function () {
+            console.log('error');
             if (request.status !== 200) {
                 reject({
                     status: request.status
                 });
                 return;
             }
-            //ответ от сервера
+            //Выполнелся успешно и передает результат
             resolve(request.response);
         });
         request.addEventListener('error', function () {
+            //выполнился с ошибкой. 404 не обрабатывается error
             reject({
                 status: request.status
             });
@@ -56,35 +62,32 @@ function requestApi(url) {
 }
 
 
-
-
-
-    // request.addEventListener('readystatechange', () =>{
-    //     if (request.readyState !== 4) {
-    //         movie.innerHTML = 'Загрузка';
-    //         return;
-    //     }
-    //
-    //     if(request.status !==200){
-    //         movie.innerHTML = 'Упс, что то пошло не так!';
-    //         console.log('error:' + request.status);
-    //         return;
-    //     }
-    //      спарсит JSON в объект
-    //     const output = JSON.parse(request.responseText);
-    //
-    //     let inner = '';
-    //
-    //     //вывод результата
-    //     output.results.forEach(function(item){
-    //         // выведит значение которое существует
-    //         let nameItem = item.name || item.title;
-    //         console.log(nameItem);
-    //         //add адаптив верстку к пустой строке
-    //         inner += `<div class="col-12 col-md-4 col-xl-3">${nameItem} + </div>`;
-    //     });
-    //
-    //     movie.innerHTML = inner;
-    //
-    //     console.log(output);
-    // });
+// request.addEventListener('readystatechange', () =>{
+//     if (request.readyState !== 4) {
+//         movie.innerHTML = 'Загрузка';
+//         return;
+//     }
+//
+//     if(request.status !==200){
+//         movie.innerHTML = 'Упс, что то пошло не так!';
+//         console.log('error:' + request.status);
+//         return;
+//     }
+//      спарсит JSON в объект
+//     const output = JSON.parse(request.responseText);
+//
+//     let inner = '';
+//
+//     //вывод результата
+//     output.results.forEach(function(item){
+//         // выведит значение которое существует
+//         let nameItem = item.name || item.title;
+//         console.log(nameItem);
+//         //add адаптив верстку к пустой строке
+//         inner += `<div class="col-12 col-md-4 col-xl-3">${nameItem} + </div>`;
+//     });
+//
+//     movie.innerHTML = inner;
+//
+//     console.log(output);
+// });
