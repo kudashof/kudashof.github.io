@@ -100,7 +100,11 @@ function showFullInfo() {
                 ${(output.homepage) ? `<p class="text-center"><a href="https://imdb.com/title/${output.imdb_id}" target="_blank"> Страница на IMDB.com </a></p>` :
                     ''}    
                     </div>
-                    <div class="col-8"></div>
+                    <div class="col-8">
+                    <p> Рейтинг: ${output.vote_average}</p>
+                    <p> Статус: ${output.status}</p>
+                    <p> Премьера: ${output.first_air_date || output.release_date}</p>
+</div>
 `;
 
 
