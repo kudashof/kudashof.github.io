@@ -104,6 +104,9 @@ function showFullInfo() {
                     <p> Рейтинг: ${output.vote_average}</p>
                     <p> Статус: ${output.status}</p>
                     <p> Премьера: ${output.first_air_date || output.release_date}</p>
+                    
+                    ${(output.last_episode_to_air) ? `<p>${output.number_of_seasons} сезонов 
+                ${output.last_episode_to_air.episode_number} серий вышло</p>` : ''}
 </div>
 `;
 
