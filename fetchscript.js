@@ -2,6 +2,7 @@ import { fetchCatalog, fetchDetail, fetchGenres, formatRating, imageUrl } from '
 import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js';
 
 const root = document.documentElement;
+if (new URLSearchParams(location.search).get('ratingDesign') === 'ring') root.dataset.ratingDesign = 'ring';
 const els = {
   home: document.querySelector('#home-link'),
   searchMode: document.querySelector('#mode-search'),
@@ -146,7 +147,24 @@ function genreNames(item) {
 function formatVotes(votes) {
   if (!votes) return 'Оценок пока нет';
   const short = new Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 }).format(votes);
-  return short + ' оценок';
+  return short + ' ' + (votes < 1000 ? countWord(votes, ['оценка', 'оценки', 'оценок']) : 'оценок');
+}
+
+function countWord(count, forms) {
+  const lastTwo = count % 100;
+  if (lastTwo >= 11 && lastTwo <= 14) return forms[2];
+  const last = count % 10;
+  return last === 1 ? forms[0] : last >= 2 && last <= 4 ? forms[1] : forms[2];
+}
+
+function scoreBadge(value, votes) {
+  const valid = Number.isFinite(value) && value >= 0 && value <= 10 && Number.isInteger(votes) && votes > 0;
+  const tone = !valid || votes < 50 ? 'provisional' : value < 5.5 ? 'low' : value < 7.5 ? 'mid' : 'high';
+  const badge = node('span', 'score-badge score-' + tone);
+  badge.style.setProperty('--score-progress', valid && votes >= 50 ? value * 10 + '%' : '0%');
+  badge.append(node('span', 'score-value', valid ? formatRating(value, votes) : '—'));
+  if (valid) badge.append(node('small', 'score-scale', '/10'));
+  return badge;
 }
 
 function makeCard(item, index) {
@@ -156,7 +174,6 @@ function makeCard(item, index) {
   card.dataset.type = item.type;
   card.dataset.id = String(item.id);
   card.style.setProperty('--i', String(Math.min(index, 8)));
-  card.setAttribute('aria-label', 'Подробнее: ' + item.title);
   card.append(node('span', 'number', String(index + 1 + (state.page - 1) * 20).padStart(2, '0')));
   const poster = node('div', 'poster');
   const image = node('img', item.poster ? '' : 'is-placeholder');
@@ -177,13 +194,19 @@ function makeCard(item, index) {
   poster.append(image);
   card.append(poster);
   card.append(node('h3', '', item.title));
-  const meta = [item.year || 'Год неизвестен', item.type === 'movie' ? 'Фильм' : 'Сериал', genreNames(item)].filter(Boolean).join(' · ');
-  card.append(node('p', 'card-meta', meta));
+  const mediaType = item.type === 'movie' ? 'Фильм' : 'Сериал';
+  const meta = node('p', 'card-meta');
+  meta.append(node('span', 'type-badge', mediaType));
+  meta.append(node('span', 'card-year', item.year || 'Год неизвестен'));
+  const genres = genreNames(item);
+  if (genres) meta.append(node('span', 'card-genres', genres));
+  card.append(meta);
   const rating = node('div', 'rating');
-  rating.append(icon('star'));
-  rating.append(node('span', '', formatRating(item.rating, item.votes)));
-  rating.append(node('small', '', '· ' + formatVotes(item.votes)));
+  rating.append(scoreBadge(item.rating, item.votes));
+  rating.append(node('small', 'score-votes', formatVotes(item.votes)));
   card.append(rating);
+  const ratingLabel = item.votes ? `Оценка ${formatRating(item.rating, item.votes)} из 10, ${formatVotes(item.votes)}` : 'Оценок пока нет';
+  card.setAttribute('aria-label', `Подробнее: ${item.title}. ${mediaType}, ${item.year || 'год неизвестен'}. ${ratingLabel}`);
   return card;
 }
 
@@ -292,14 +315,22 @@ function renderDetail(data) {
   if (genres) facts.append(node('span', '', genres));
   if (data.type === 'movie' && data.runtime) facts.append(detailLine('Длительность', data.runtime + ' мин'));
   if (data.type === 'tv') {
-    if (Number.isInteger(data.number_of_seasons)) facts.append(detailLine('Сезоны', String(data.number_of_seasons)));
+    if (Number.isInteger(data.number_of_seasons) && data.number_of_seasons > 0) {
+      facts.append(node('span', '', data.number_of_seasons + ' ' + countWord(data.number_of_seasons, ['сезон', 'сезона', 'сезонов'])));
+    }
+    if (Number.isInteger(data.number_of_episodes) && data.number_of_episodes > 0) {
+      facts.append(node('span', '', data.number_of_episodes + ' ' + countWord(data.number_of_episodes, ['серия', 'серии', 'серий'])));
+    }
     const statuses = { 'Returning Series': 'Продолжается', Ended: 'Завершён', Canceled: 'Отменён', 'In Production': 'В производстве', Planned: 'Планируется', Pilot: 'Пилот' };
     if (statuses[data.status]) facts.append(detailLine('Статус', statuses[data.status]));
   }
   content.append(facts);
   const score = node('div', 'detail-rating');
-  score.append(icon('star'));
-  score.append(node('span', '', formatRating(data.vote_average, data.vote_count) + ' · ' + formatVotes(data.vote_count)));
+  score.append(scoreBadge(data.vote_average, data.vote_count));
+  const scoreInfo = node('div', 'score-info');
+  scoreInfo.append(node('span', 'score-label', 'Оценка пользователей'));
+  scoreInfo.append(node('span', 'score-votes', formatVotes(data.vote_count)));
+  score.append(scoreInfo);
   content.append(score);
   content.append(node('h2', '', data.type === 'tv' ? 'О сериале' : 'О фильме'));
   content.append(node('p', 'detail-overview', data.overview || 'Описание пока недоступно.'));
