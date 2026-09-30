@@ -181,7 +181,7 @@ function makeCard(item, index) {
   card.append(node('p', 'card-meta', meta));
   const rating = node('div', 'rating');
   rating.append(icon('star'));
-  rating.append(node('span', '', 'TMDB ' + formatRating(item.rating, item.votes)));
+  rating.append(node('span', '', formatRating(item.rating, item.votes)));
   rating.append(node('small', '', '· ' + formatVotes(item.votes)));
   card.append(rating);
   return card;
