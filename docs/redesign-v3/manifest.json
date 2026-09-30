@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "project": "Movie DB",
+  "repository": "https://github.com/kudashof/kudashof.github.io",
+  "checkedAt": "2026-09-30",
+  "baseline": {
+    "ref": "origin/master",
+    "commit": "3965f0f",
+    "siteType": "static HTML/CSS/JavaScript"
+  },
+  "decision": {
+    "chosenDesignDirection": "Variant 3",
+    "plannedExtension": "Variant 3 + motion",
+    "finalVisualApproval": false,
+    "rejectedPaletteSource": "Variant 3.1",
+    "authority": "Alexey's explicit choice in the referenced project conversation and 2026-09-30 clarification that the mockup is still in development"
+  },
+  "visualSource": {
+    "status": "in_development",
+    "approvedFile": null,
+    "userClarification": "The Variant 3 mockup is still in development as of 2026-09-30.",
+    "expectedDestination": "docs/redesign-v3/variant-3-approved.<ext>",
+    "checkedSources": [
+      "origin/master tracked files",
+      "local ChatGPT project sources/",
+      "Google Drive folder 1ZebwLh-cZd7c8FJpDs4ATSasemECoDcO",
+      "Google Drive image filename searches for Variant 3, Вариант 3, Movie DB, SearchMovieDB, variant-3, макет"
+    ],
+    "unknowns": [
+      "exact palette",
+      "typefaces",
+      "dimensions and spacing",
+      "original image and asset files",
+      "desktop/mobile visual variants"
+    ]
+  },
+  "documents": [
+    {
+      "localPath": "docs/redesign-v3/design-ux.md",
+      "source": "https://docs.google.com/document/d/1dBQ2rKSfVM6htgc95J7VGnSwyU84Dl7yKnmdHG1hOag/edit",
+      "role": "design and UX specification",
+      "sourceModifiedAt": "2026-09-30T01:41:52.312Z"
+    },
+    {
+      "localPath": "docs/redesign-v3/motion.md",
+      "source": "https://docs.google.com/document/d/15En30HOCVZT0e6zjNZSI6btNmhE3ZVsOHNgbB8di60I/edit",
+      "role": "motion specification",
+      "sourceModifiedAt": "2026-09-30T01:41:59.046Z"
+    },
+    {
+      "localPath": "docs/redesign-v3/codex-handoff.md",
+      "source": "https://docs.google.com/document/d/12rwJcMGXobvBqTFxDKPGUsiEBEmY_2wcDwFfRexVFyM/edit",
+      "role": "implementation handoff and QA",
+      "sourceModifiedAt": "2026-09-30T01:42:36.377Z"
+    },
+    {
+      "localPath": "docs/redesign-v3/technical-baseline.md",
+      "source": "repository inspection on 2026-09-30",
+      "role": "verified repository-specific addendum"
+    }
+  ],
+  "sourcePriority": [
+    "final approved original Variant 3 file for appearance, when available",
+    "current repository for existing functionality and content",
+    "design-ux.md and motion.md for agreed behavior",
+    "codex-handoff.md for implementation process"
+  ],
+  "stopCondition": "Do not finalize visual styling, derive exact design tokens, or claim visual acceptance until the Variant 3 mockup is finished, explicitly approved, and its original file is available.",
+  "allowedBeforeVisualSource": [
+    "read-only repository audit",
+    "implementation plan",
+    "baseline checks",
+    "non-visual technical preparation within a separately authorized implementation task"
+  ],
+  "notApprovedByThisPackage": [
+    "Variant 3.1 palette",
+    "new product features inferred from prose alone",
+    "production deployment"
+  ]
+}
