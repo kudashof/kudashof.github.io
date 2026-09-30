@@ -299,7 +299,7 @@ function renderDetail(data) {
   content.append(facts);
   const score = node('div', 'detail-rating');
   score.append(icon('star'));
-  score.append(node('span', '', 'TMDB ' + formatRating(data.vote_average, data.vote_count) + ' · ' + formatVotes(data.vote_count)));
+  score.append(node('span', '', formatRating(data.vote_average, data.vote_count) + ' · ' + formatVotes(data.vote_count)));
   content.append(score);
   content.append(node('h2', '', data.type === 'tv' ? 'О сериале' : 'О фильме'));
   content.append(node('p', 'detail-overview', data.overview || 'Описание пока недоступно.'));
