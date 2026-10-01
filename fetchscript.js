@@ -157,14 +157,12 @@ function selectedGenres() {
 }
 
 function setGenrePopover(open) {
-  els.genrePopover.hidden = !open;
-  els.genrePicker.classList.toggle('is-open', open);
-  els.genreToggle.setAttribute('aria-expanded', String(open));
+  els.genrePicker.open = open;
 }
 
 function renderGenreSelection() {
   const selected = selectedGenres();
-  els.genreSummary.textContent = selected.length === 0 ? 'Любые' : selected.length === 1 ? selected[0].name : `${selected.length} выбрано`;
+  els.genreSummary.textContent = selected.length === 0 ? 'любые' : selected.length === 1 ? selected[0].name : `${selected.length} выбрано`;
   els.clearGenres.hidden = selected.length === 0;
   els.genreChips.replaceChildren();
   for (const genre of selected) {
@@ -554,16 +552,15 @@ els.filterToggle.addEventListener('click', () => {
   const open = els.filters.classList.toggle('opened');
   els.filterToggle.setAttribute('aria-expanded', String(open));
 });
-els.genreToggle.addEventListener('click', () => setGenrePopover(els.genrePopover.hidden));
 els.clearGenres.addEventListener('click', () => {
   draftGenres = [];
   populateGenres();
 });
 document.addEventListener('click', event => {
-  if (!els.genrePopover.hidden && !els.genrePicker.contains(event.target)) setGenrePopover(false);
+  if (els.genrePicker.open && !els.genrePicker.contains(event.target)) setGenrePopover(false);
 });
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && !els.genrePopover.hidden) {
+  if (event.key === 'Escape' && els.genrePicker.open) {
     setGenrePopover(false);
     els.genreToggle.focus();
   }

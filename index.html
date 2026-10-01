@@ -64,14 +64,14 @@
             <button type="button" class="filter-toggle" id="filter-toggle" aria-expanded="false" aria-controls="filter-fields"><span class="icon icon-sliders" aria-hidden="true"></span>Фильтры</button>
             <div class="pick-filter-stack">
               <div class="filter-fields" id="filter-fields">
-                <div class="genre-picker">
-                  <button type="button" class="genre-toggle" id="genre-toggle" aria-expanded="false" aria-controls="genre-popover"><span>Жанры</span><span id="genre-summary" class="genre-summary">Любые</span><span class="genre-caret" aria-hidden="true">⌄</span></button>
-                  <div id="genre-popover" class="genre-popover" hidden>
+                <details class="genre-picker">
+                  <summary class="genre-toggle" id="genre-toggle"><span>Жанры:</span><span id="genre-summary" class="genre-summary">любые</span><span class="genre-caret" aria-hidden="true">⌄</span></summary>
+                  <div id="genre-popover" class="genre-popover">
                     <div class="genre-popover-heading"><strong>Жанры</strong><button type="button" id="clear-genres" class="clear-genres" hidden>Сбросить</button></div>
                     <p>Можно выбрать несколько</p>
                     <div id="genre-options" class="genre-options" role="group" aria-label="Жанры"></div>
                   </div>
-                </div>
+                </details>
                 <label class="sr-only" for="period">Год или период</label><select id="period"><option value="">Год: любой</option><option value="last5">Последние 5 лет</option><option value="2020s">2020-е</option><option value="2010s">2010-е</option><option value="2000s">2000-е</option><option value="1990s">1990-е</option><option value="before1990">До 1990</option></select>
                 <label class="sr-only" for="rating">Минимальная оценка</label><select id="rating"><option value="">Рейтинг: любой</option><option value="6">От 6,0</option><option value="7">От 7,0</option><option value="8">От 8,0</option></select>
                 <label class="sr-only" for="sort">Сортировка</label><select id="sort"><option value="popular">Популярные</option><option value="rating">По оценке</option><option value="newest">Новые</option></select>
