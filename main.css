@@ -33,7 +33,10 @@ main{max-width:none;margin:0;padding:0}
 .filter-fields{min-width:0}
 .filter-fields select{min-width:0;max-width:170px}
 .filter-fields .show{white-space:nowrap}
+.genre-fieldset{min-width:210px;max-width:240px;max-height:214px;margin:0;padding:8px 12px;border:1px solid var(--border);border-radius:4px;overflow:auto}.genre-fieldset legend{padding:0 4px;font-size:13px;font-weight:700}.genre-fieldset>p{margin:0 0 7px;color:var(--muted);font-size:11px}.genre-options{display:grid;gap:3px}.genre-option{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;line-height:1.25;cursor:pointer}.genre-option input{width:15px;height:15px;accent-color:#8da900;flex:none}
 .search-hint{color:var(--muted);font-size:13px;margin-left:auto}
+.nav-line.lists{transform:translateX(166px)}
+.list-controls{align-items:flex-start;flex-wrap:wrap}.list-copy{flex:0 0 150px;padding-top:4px}.list-copy strong{font-size:16px}.list-copy p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.4}.list-groups{display:flex;flex:1;min-width:0;gap:26px;border-left:1px solid var(--border);padding-left:26px}.list-group{min-width:0}.list-group>span{display:block;margin:0 0 8px;color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.list-choices{display:flex;flex-wrap:wrap;gap:8px}.list-choices button{padding:9px 12px;border:1px solid var(--border);border-radius:4px;background:transparent;font-size:13px}.list-choices button.chosen{background:var(--fg);border-color:var(--fg);color:var(--invert);font-weight:700}.list-note{flex-basis:100%;margin:0;color:var(--muted);font-size:11px}
 .catalog-status{min-height:20px;margin:8px 0 0;color:var(--muted);font-size:13px}
 .catalog-error{display:flex;align-items:center;gap:16px;padding:14px 18px;margin-top:12px;border:1px solid var(--border);background:var(--soft)}
 .catalog-error p{margin:0;flex:1}
@@ -83,6 +86,7 @@ html[data-route=detail] .list-view{display:none}
   .filter-fields{padding-left:0;border-left:0;gap:10px;flex-wrap:wrap}
   .filter-fields select{flex:1 1 calc(25% - 8px);min-width:0;max-width:none;padding-inline:10px}
   .filter-fields .show{flex:1 0 100%;height:44px;padding-inline:12px}
+  .genre-fieldset{flex:1 1 calc(50% - 8px);max-width:none}
   .grid{grid-template-columns:repeat(4,minmax(0,1fr))}
   .hero{grid-template-columns:42% 58%;grid-template-rows:220px 72px}
   .hero h1{grid-row:1;margin-top:22px;font-size:clamp(38px,5vw,56px)}
@@ -99,8 +103,11 @@ html[data-route=detail] .list-view{display:none}
   .filter-mode .types button{min-width:0}
   #search-controls .types button{width:33.333%}
   .search-hint{margin:10px 0 0}
+  .nav-line.lists{transform:translateX(180px)}
+  .list-copy{padding:0 0 12px}.list-groups{display:block;border-left:0;border-top:1px solid var(--border);padding:12px 0 0}.list-group+.list-group{margin-top:14px}.list-choices{gap:6px}.list-choices button{padding:8px 9px;font-size:12px}.list-note{margin-top:2px}
   .filter-fields select{max-width:none;min-width:0;width:calc(50% - 6px)}
   .filter-fields .show{flex:0 0 100%}
+  .genre-fieldset{width:100%;max-width:none;max-height:230px}
   .catalog-status{margin-top:8px}
   .catalog-error{flex-direction:column;align-items:flex-start}
   .catalog-error button{width:100%}

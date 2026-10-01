@@ -1,5 +1,5 @@
-import { fetchCatalog, fetchDetail, fetchGenres, formatRating, imageUrl } from './tmdb.js';
-import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js';
+import { fetchCatalog, fetchDetail, fetchGenres, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261001c';
+import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261001c';
 
 const root = document.documentElement;
 if (new URLSearchParams(location.search).get('ratingDesign') === 'ring') root.dataset.ratingDesign = 'ring';
@@ -7,6 +7,7 @@ const els = {
   home: document.querySelector('#home-link'),
   searchMode: document.querySelector('#mode-search'),
   pickMode: document.querySelector('#mode-pick'),
+  listsMode: document.querySelector('#mode-lists'),
   navLine: document.querySelector('.nav-line'),
   theme: document.querySelector('#theme-choice'),
   themeIcon: document.querySelector('.theme-icon'),
@@ -14,9 +15,10 @@ const els = {
   searchInput: document.querySelector('#search-query'),
   pickControls: document.querySelector('#pick-controls'),
   searchControls: document.querySelector('#search-controls'),
+  listsControls: document.querySelector('#lists-controls'),
   filters: document.querySelector('.filters'),
   filterToggle: document.querySelector('#filter-toggle'),
-  genre: document.querySelector('#genre'),
+  genreOptions: document.querySelector('#genre-options'),
   period: document.querySelector('#period'),
   rating: document.querySelector('#rating'),
   sort: document.querySelector('#sort'),
@@ -42,6 +44,7 @@ const els = {
 let state = parseState(location.href);
 let draftPickType = state.pickType;
 let draftSearchType = state.searchType;
+let draftGenres = [...state.genres];
 let activeCatalog = null;
 let activeDetail = null;
 let catalogSequence = 0;
@@ -49,6 +52,7 @@ let detailSequence = 0;
 let returnFocus = null;
 const catalogCache = new Map();
 const genreData = { movie: null, tv: null };
+const genreOptionsData = { movie: null, tv: null };
 const genrePromises = { movie: null, tv: null };
 const systemTheme = matchMedia('(prefers-color-scheme: dark)');
 let themeChoice = 'system';
@@ -91,37 +95,63 @@ function setChoiceButtons(selector, chosen, attribute) {
 
 function renderControls() {
   const search = state.mode === 'search';
+  const lists = state.mode === 'lists';
+  const list = READY_LISTS[state.list] || READY_LISTS['trending-movie'];
   setPageMeta(
-    search && state.q ? `Поиск: ${state.q} — Что посмотреть` : 'Что посмотреть — фильмы и сериалы',
-    search && state.q ? `Результаты поиска фильмов и сериалов по запросу «${state.q}» на основе данных TMDB.` : 'Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.',
+    search && state.q ? `Поиск: ${state.q} — Что посмотреть` : lists ? `${list.title} — Что посмотреть` : 'Что посмотреть — фильмы и сериалы',
+    search && state.q ? `Результаты поиска фильмов и сериалов по запросу «${state.q}» на основе данных TMDB.` : lists ? `${list.title} по данным TMDB.` : 'Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.',
   );
   els.searchMode.classList.toggle('active', search);
-  els.pickMode.classList.toggle('active', !search);
+  els.pickMode.classList.toggle('active', !search && !lists);
+  els.listsMode.classList.toggle('active', lists);
   els.searchMode.setAttribute('aria-pressed', String(search));
-  els.pickMode.setAttribute('aria-pressed', String(!search));
-  els.navLine.classList.toggle('pick', !search);
+  els.pickMode.setAttribute('aria-pressed', String(!search && !lists));
+  els.listsMode.setAttribute('aria-pressed', String(lists));
+  els.navLine.classList.toggle('pick', !search && !lists);
   els.navLine.classList.toggle('search', search);
-  els.pickControls.hidden = search;
+  els.navLine.classList.toggle('lists', lists);
+  els.pickControls.hidden = search || lists;
   els.searchControls.hidden = !search;
-  els.title.textContent = search ? 'Результаты поиска' : 'Идеи для просмотра';
+  els.listsControls.hidden = !lists;
+  els.title.textContent = search ? 'Результаты поиска' : lists ? list.title : 'Идеи для просмотра';
   els.searchInput.value = state.q;
   draftPickType = state.pickType;
   draftSearchType = state.searchType;
   setChoiceButtons('[data-pick-type]', draftPickType, 'pickType');
   setChoiceButtons('[data-search-type]', draftSearchType, 'searchType');
+  setChoiceButtons('[data-list]', state.list, 'list');
   els.period.value = state.period;
   els.rating.value = state.rating;
   els.sort.value = state.sort;
-  populateGenres(state.genre);
+  draftGenres = [...state.genres];
+  populateGenres();
 }
 
-function populateGenres(selected = els.genre.value || state.genre) {
-  els.genre.replaceChildren(new Option('Жанр: любой', ''));
-  for (const genre of genreData[draftPickType] || []) {
-    els.genre.add(new Option(genre.name, String(genre.id)));
+function populateGenres() {
+  els.genreOptions.replaceChildren();
+  for (const genre of genreOptionsData[draftPickType] || []) {
+    const label = node('label', 'genre-option');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.value = genre.key;
+    input.checked = draftGenres.includes(input.value);
+    input.addEventListener('change', () => {
+      draftGenres = [...els.genreOptions.querySelectorAll('input:checked')].map(item => item.value);
+    });
+    label.append(input, node('span', '', genre.name));
+    els.genreOptions.append(label);
   }
-  els.genre.value = selected;
-  if (els.genre.selectedIndex < 0) els.genre.value = '';
+}
+
+function genreOptions(genres) {
+  const parts = {
+    10759: ['Боевик', 'Приключения'],
+    10765: ['Научная фантастика', 'Фэнтези'],
+    10768: ['Военный', 'Политика'],
+  };
+  return genres.flatMap(genre => (parts[genre.id] || [genre.name]).map((name, index) => ({
+    id: genre.id, key: parts[genre.id] ? `${genre.id}:${index}` : String(genre.id), name,
+  })));
 }
 
 function ensureGenres(type) {
@@ -129,7 +159,8 @@ function ensureGenres(type) {
   if (!genrePromises[type]) {
     genrePromises[type] = fetchGenres(type).then(genres => {
       genreData[type] = genres;
-      if (draftPickType === type) populateGenres(els.genre.value);
+      genreOptionsData[type] = genreOptions(genres);
+      if (draftPickType === type) populateGenres();
       return genres;
     }).catch(() => {
       genreData[type] = [];
@@ -137,6 +168,14 @@ function ensureGenres(type) {
     });
   }
   return genrePromises[type];
+}
+
+function orderGenresByPopularity(type, items) {
+  if (!genreOptionsData[type]?.length || !items.length) return;
+  const popularity = new Map();
+  for (const item of items) for (const id of item.genres) popularity.set(id, (popularity.get(id) || 0) + item.popularity);
+  genreOptionsData[type] = [...genreOptionsData[type]].sort((left, right) => (popularity.get(right.id) || 0) - (popularity.get(left.id) || 0) || left.name.localeCompare(right.name, 'ru'));
+  if (type === draftPickType) populateGenres();
 }
 
 function genreNames(item) {
@@ -214,7 +253,7 @@ function renderCatalog(result, animate = true) {
   els.grid.classList.toggle('no-motion', !animate);
   els.grid.replaceChildren(...result.items.map(makeCard));
   els.empty.hidden = result.items.length > 0;
-  if (!result.items.length) els.emptyTitle.textContent = state.mode === 'search' ? 'Ничего не найдено' : 'Подборка пуста';
+  if (!result.items.length) els.emptyTitle.textContent = state.mode === 'search' ? 'Ничего не найдено' : state.mode === 'lists' ? 'В списке пока нет фильмов' : 'Подборка пуста';
   const totalPages = Math.max(1, result.totalPages);
   els.pages.hidden = totalPages <= 1;
   els.prev.disabled = state.page <= 1;
@@ -248,13 +287,17 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   els.grid.classList.add('updating');
   els.empty.hidden = true;
   els.error.hidden = true;
-  els.status.textContent = els.grid.children.length ? 'Обновляем подборку; пока показаны прежние результаты…' : 'Загружаем результаты…';
+  const updateLabel = state.mode === 'lists' ? 'Обновляем список' : 'Обновляем подборку';
+  els.status.textContent = els.grid.children.length ? `${updateLabel}; пока показаны прежние результаты…` : 'Загружаем результаты…';
   try {
     const genresNeeded = state.mode === 'search'
       ? Promise.all([ensureGenres('movie'), ensureGenres('tv')])
-      : ensureGenres(state.pickType);
+      : state.mode === 'lists'
+        ? ensureGenres((READY_LISTS[state.list] || READY_LISTS['trending-movie']).type)
+        : ensureGenres(state.pickType);
     const [result] = await Promise.all([fetchCatalog(state, { signal: activeCatalog.signal }), genresNeeded]);
     if (sequence !== catalogSequence) return;
+    if (state.mode === 'pick') orderGenresByPopularity(state.pickType, result.items);
     catalogCache.set(key, result);
     renderCatalog(result, animate);
   } catch (error) {
@@ -439,22 +482,35 @@ els.pickMode.addEventListener('click', () => {
   if (state.mode === 'pick' && !state.view) return;
   switchRoute({ ...state, mode: 'pick', page: 1 });
 });
+els.listsMode.addEventListener('click', () => {
+  if (state.mode === 'lists' && !state.view) return;
+  switchRoute({ ...state, mode: 'lists', page: 1 });
+});
 els.home.addEventListener('click', event => {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
   switchRoute({ ...DEFAULT_STATE });
 });
 document.querySelectorAll('[data-pick-type]').forEach(button => button.addEventListener('click', () => {
-  draftPickType = button.dataset.pickType;
-  els.genre.value = '';
-  setChoiceButtons('[data-pick-type]', draftPickType, 'pickType');
-  populateGenres('');
-  ensureGenres(draftPickType);
+  const pickType = button.dataset.pickType;
+  if (pickType === state.pickType) return;
+  // A genre ID from the other media type may mean something different here.
+  els.grid.replaceChildren();
+  els.pages.hidden = true;
+  switchRoute({
+    ...state, mode: 'pick', pickType, genres: [],
+    period: els.period.value, rating: els.rating.value, sort: els.sort.value, page: 1,
+  }, { scrollTop: false });
 }));
 document.querySelectorAll('[data-search-type]').forEach(button => button.addEventListener('click', () => {
   draftSearchType = button.dataset.searchType;
   setChoiceButtons('[data-search-type]', draftSearchType, 'searchType');
   if (state.mode === 'search' && state.q) switchRoute({ ...state, searchType: draftSearchType, page: 1 }, { scrollTop: false });
+}));
+document.querySelectorAll('[data-list]').forEach(button => button.addEventListener('click', () => {
+  const list = button.dataset.list;
+  if (!READY_LISTS[list] || (state.mode === 'lists' && list === state.list)) return;
+  switchRoute({ ...state, mode: 'lists', list, page: 1 }, { scrollTop: false, scrollCatalog: true });
 }));
 els.filterToggle.addEventListener('click', () => {
   const open = els.filters.classList.toggle('opened');
@@ -463,7 +519,7 @@ els.filterToggle.addEventListener('click', () => {
 els.apply.addEventListener('click', () => {
   switchRoute({
     ...state, mode: 'pick', pickType: draftPickType,
-    genre: els.genre.value, period: els.period.value, rating: els.rating.value,
+    genres: draftGenres, period: els.period.value, rating: els.rating.value,
     sort: els.sort.value, page: 1,
   }, { scrollTop: false, scrollCatalog: true });
 });

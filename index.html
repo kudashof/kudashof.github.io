@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
-  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="main.css?v=20261001c">
   <script>
     try {
       const choice = localStorage.getItem('movie-theme') || 'system';
@@ -20,7 +20,7 @@
     } catch (_) { /* The site remains usable when storage is unavailable. */ }
     if (new URLSearchParams(location.search).has('view')) document.documentElement.dataset.route = 'detail';
   </script>
-  <script type="module" src="fetchscript.js"></script>
+  <script type="module" src="fetchscript.js?v=20261001c"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">К содержанию</a>
@@ -30,6 +30,7 @@
       <nav class="mode-nav" aria-label="Режим просмотра">
         <button type="button" id="mode-search" aria-pressed="false">Поиск</button>
         <button type="button" id="mode-pick" class="active" aria-pressed="true">Подбор</button>
+        <button type="button" id="mode-lists" aria-pressed="false">Списки</button>
         <span class="nav-line pick" aria-hidden="true"></span>
       </nav>
       <label class="theme" for="theme-choice">
@@ -62,7 +63,7 @@
             </div>
             <button type="button" class="filter-toggle" id="filter-toggle" aria-expanded="false" aria-controls="filter-fields"><span class="icon icon-sliders" aria-hidden="true"></span>Фильтры</button>
             <div class="filter-fields" id="filter-fields">
-              <label class="sr-only" for="genre">Жанр</label><select id="genre"><option value="">Жанр: любой</option></select>
+              <fieldset class="genre-fieldset"><legend>Жанры</legend><p>Можно выбрать несколько</p><div id="genre-options" class="genre-options" role="group" aria-label="Жанры"></div></fieldset>
               <label class="sr-only" for="period">Год или период</label><select id="period"><option value="">Год: любой</option><option value="last5">Последние 5 лет</option><option value="2020s">2020-е</option><option value="2010s">2010-е</option><option value="2000s">2000-е</option><option value="1990s">1990-е</option><option value="before1990">До 1990</option></select>
               <label class="sr-only" for="rating">Минимальная оценка</label><select id="rating"><option value="">Рейтинг: любой</option><option value="6">От 6,0</option><option value="7">От 7,0</option><option value="8">От 8,0</option></select>
               <label class="sr-only" for="sort">Сортировка</label><select id="sort"><option value="popular">Популярные</option><option value="rating">По оценке</option><option value="newest">Новые</option></select>
@@ -77,6 +78,14 @@
               <button type="button" data-search-type="tv" aria-pressed="false">Сериалы</button>
             </div>
             <p class="search-hint">Поиск по названию без фильтров подбора</p>
+          </div>
+          <div id="lists-controls" class="filter-mode list-controls" hidden>
+            <div class="list-copy"><strong>Готовые списки</strong><p>Обновляются по данным TMDB</p></div>
+            <div class="list-groups" aria-label="Списки фильмов и сериалов">
+              <div class="list-group"><span>Фильмы</span><div class="list-choices"><button type="button" data-list="trending-movie">В тренде</button><button type="button" data-list="popular-movie">Популярные</button><button type="button" data-list="top-rated-movie">Лучшие по оценкам</button><button type="button" data-list="now-playing-movie">Новые релизы</button><button type="button" data-list="upcoming-movie">Ожидаемые</button></div></div>
+              <div class="list-group"><span>Сериалы</span><div class="list-choices"><button type="button" data-list="trending-tv">В тренде</button><button type="button" data-list="popular-tv">Популярные</button><button type="button" data-list="top-rated-tv">Лучшие по оценкам</button></div></div>
+            </div>
+            <p class="list-note">Даты и доступность релизов зависят от региона.</p>
           </div>
         </section>
 

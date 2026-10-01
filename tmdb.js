@@ -4,6 +4,17 @@ const API_ROOT = 'https://api.themoviedb.org/3';
 const IMAGE_ROOT = 'https://image.tmdb.org/t/p';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+export const READY_LISTS = Object.freeze({
+  'trending-movie': { title: 'Фильмы в тренде', type: 'movie', path: '/trending/movie/week' },
+  'popular-movie': { title: 'Популярные фильмы', type: 'movie', path: '/movie/popular' },
+  'top-rated-movie': { title: 'Лучшие фильмы по оценкам', type: 'movie', path: '/movie/top_rated' },
+  'now-playing-movie': { title: 'Новые релизы', type: 'movie', path: '/movie/now_playing' },
+  'upcoming-movie': { title: 'Ожидаемые фильмы', type: 'movie', path: '/movie/upcoming' },
+  'trending-tv': { title: 'Сериалы в тренде', type: 'tv', path: '/trending/tv/week' },
+  'popular-tv': { title: 'Популярные сериалы', type: 'tv', path: '/tv/popular' },
+  'top-rated-tv': { title: 'Лучшие сериалы по оценкам', type: 'tv', path: '/tv/top_rated' },
+});
+
 export function imageUrl(path, size = 'w342') {
   if (typeof path !== 'string' || !/^\/[A-Za-z0-9._-]+$/.test(path) || path.includes('..')) return null;
   return `${IMAGE_ROOT}/${size}${path}`;
@@ -23,6 +34,7 @@ export function normalizeMedia(item, fallbackType) {
     poster: imageUrl(item.poster_path),
     posterLarge: imageUrl(item.poster_path, 'w500'),
     genres: Array.isArray(item.genre_ids) ? item.genre_ids.filter(Number.isInteger) : [],
+    popularity: Number.isFinite(item.popularity) ? item.popularity : 0,
     rating: Number.isFinite(item.vote_average) ? item.vote_average : 0,
     votes: Number.isInteger(item.vote_count) ? item.vote_count : 0,
   };
@@ -71,10 +83,20 @@ export function buildDiscoverRequest(state, now = new Date()) {
   };
   if (type === 'tv') params.include_null_first_air_dates = false;
   if (after) params[`${dateField}.gte`] = after;
-  if (/^\d+$/.test(state.genre || '')) params.with_genres = state.genre;
+  const genreIds = [...new Set((state.genres || []).map(genre => String(genre).split(':')[0]).filter(genre => /^\d{1,6}$/.test(genre)))];
+  if (genreIds.length) params.with_genres = genreIds.join(',');
   if (state.rating) params['vote_average.gte'] = state.rating;
   if (state.sort === 'rating') params['vote_count.gte'] = 50;
   return { path: `/discover/${type}`, params, fallbackType: type };
+}
+
+export function buildListRequest(state) {
+  const list = READY_LISTS[state.list] || READY_LISTS['trending-movie'];
+  return {
+    path: list.path,
+    params: { page: state.page, language: 'ru-RU' },
+    fallbackType: list.type,
+  };
 }
 
 export function buildApiUrl(path, params = {}) {
@@ -103,7 +125,11 @@ export async function apiGet(path, params = {}, { signal, fetchImpl = fetch, tim
 }
 
 export async function fetchCatalog(state, options = {}) {
-  const request = state.mode === 'search' ? buildSearchRequest(state) : buildDiscoverRequest(state);
+  const request = state.mode === 'search'
+    ? buildSearchRequest(state)
+    : state.mode === 'lists'
+      ? buildListRequest(state)
+      : buildDiscoverRequest(state);
   const data = await apiGet(request.path, request.params, options);
   const items = Array.isArray(data.results) ? data.results.map(item => normalizeMedia(item, request.fallbackType)).filter(Boolean) : [];
   return {
