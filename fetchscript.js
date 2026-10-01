@@ -21,6 +21,7 @@ const els = {
   genrePicker: document.querySelector('.genre-picker'),
   genreToggle: document.querySelector('#genre-toggle'),
   genrePopover: document.querySelector('#genre-popover'),
+  genreLabel: document.querySelector('#genre-label'),
   genreSummary: document.querySelector('#genre-summary'),
   genreChips: document.querySelector('#genre-chips'),
   clearGenres: document.querySelector('#clear-genres'),
@@ -157,12 +158,15 @@ function selectedGenres() {
 }
 
 function setGenrePopover(open) {
-  els.genrePicker.open = open;
+  els.genrePopover.hidden = !open;
+  els.genrePicker.classList.toggle('is-open', open);
+  els.genreToggle.setAttribute('aria-expanded', String(open));
 }
 
 function renderGenreSelection() {
   const selected = selectedGenres();
-  els.genreSummary.textContent = selected.length === 0 ? 'любые' : selected.length === 1 ? selected[0].name : `${selected.length} выбрано`;
+  els.genreLabel.textContent = selected.length === 0 ? 'Жанр:' : 'Жанры:';
+  els.genreSummary.textContent = selected.length === 0 ? 'любой' : selected.length === 1 ? '1 выбран' : `${selected.length} выбрано`;
   els.clearGenres.hidden = selected.length === 0;
   els.genreChips.replaceChildren();
   for (const genre of selected) {
@@ -549,18 +553,21 @@ document.querySelectorAll('[data-list]').forEach(button => button.addEventListen
   switchRoute({ ...state, mode: 'lists', list, page: 1 }, { scrollTop: false, scrollCatalog: true });
 }));
 els.filterToggle.addEventListener('click', () => {
-  const open = els.filters.classList.toggle('opened');
+  const open = els.pickControls.classList.toggle('opened');
   els.filterToggle.setAttribute('aria-expanded', String(open));
+});
+els.genreToggle.addEventListener('click', () => {
+  setGenrePopover(els.genrePopover.hidden);
 });
 els.clearGenres.addEventListener('click', () => {
   draftGenres = [];
   populateGenres();
 });
 document.addEventListener('click', event => {
-  if (els.genrePicker.open && !els.genrePicker.contains(event.target)) setGenrePopover(false);
+  if (!els.genrePopover.hidden && !els.genrePicker.contains(event.target)) setGenrePopover(false);
 });
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && els.genrePicker.open) {
+  if (event.key === 'Escape' && !els.genrePopover.hidden) {
     setGenrePopover(false);
     els.genreToggle.focus();
   }
