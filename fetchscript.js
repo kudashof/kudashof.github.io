@@ -18,6 +18,12 @@ const els = {
   listsControls: document.querySelector('#lists-controls'),
   filters: document.querySelector('.filters'),
   filterToggle: document.querySelector('#filter-toggle'),
+  genrePicker: document.querySelector('.genre-picker'),
+  genreToggle: document.querySelector('#genre-toggle'),
+  genrePopover: document.querySelector('#genre-popover'),
+  genreSummary: document.querySelector('#genre-summary'),
+  genreChips: document.querySelector('#genre-chips'),
+  clearGenres: document.querySelector('#clear-genres'),
   genreOptions: document.querySelector('#genre-options'),
   period: document.querySelector('#period'),
   rating: document.querySelector('#rating'),
@@ -137,10 +143,42 @@ function populateGenres() {
     input.checked = draftGenres.includes(input.value);
     input.addEventListener('change', () => {
       draftGenres = [...els.genreOptions.querySelectorAll('input:checked')].map(item => item.value);
+      renderGenreSelection();
     });
     label.append(input, node('span', '', genre.name));
     els.genreOptions.append(label);
   }
+  renderGenreSelection();
+}
+
+function selectedGenres() {
+  const byKey = new Map((genreOptionsData[draftPickType] || []).map(genre => [genre.key, genre]));
+  return draftGenres.map(key => byKey.get(key)).filter(Boolean);
+}
+
+function setGenrePopover(open) {
+  els.genrePopover.hidden = !open;
+  els.genrePicker.classList.toggle('is-open', open);
+  els.genreToggle.setAttribute('aria-expanded', String(open));
+}
+
+function renderGenreSelection() {
+  const selected = selectedGenres();
+  els.genreSummary.textContent = selected.length === 0 ? 'Любые' : selected.length === 1 ? selected[0].name : `${selected.length} выбрано`;
+  els.clearGenres.hidden = selected.length === 0;
+  els.genreChips.replaceChildren();
+  for (const genre of selected) {
+    const chip = node('button', 'genre-chip');
+    chip.type = 'button';
+    chip.setAttribute('aria-label', `Убрать жанр «${genre.name}»`);
+    chip.append(node('span', '', genre.name), node('span', 'genre-chip-remove', '×'));
+    chip.addEventListener('click', () => {
+      draftGenres = draftGenres.filter(key => key !== genre.key);
+      populateGenres();
+    });
+    els.genreChips.append(chip);
+  }
+  els.genreChips.hidden = selected.length === 0;
 }
 
 function genreOptions(genres) {
@@ -516,7 +554,22 @@ els.filterToggle.addEventListener('click', () => {
   const open = els.filters.classList.toggle('opened');
   els.filterToggle.setAttribute('aria-expanded', String(open));
 });
+els.genreToggle.addEventListener('click', () => setGenrePopover(els.genrePopover.hidden));
+els.clearGenres.addEventListener('click', () => {
+  draftGenres = [];
+  populateGenres();
+});
+document.addEventListener('click', event => {
+  if (!els.genrePopover.hidden && !els.genrePicker.contains(event.target)) setGenrePopover(false);
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !els.genrePopover.hidden) {
+    setGenrePopover(false);
+    els.genreToggle.focus();
+  }
+});
 els.apply.addEventListener('click', () => {
+  setGenrePopover(false);
   switchRoute({
     ...state, mode: 'pick', pickType: draftPickType,
     genres: draftGenres, period: els.period.value, rating: els.rating.value,
