@@ -1,32 +1,122 @@
 <!doctype html>
 <html lang="ru">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport"
-		  content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-	<meta http-equiv="X-UA-Compatible" content="ie=edge">
-	<link rel="stylesheet" href="main.css">
-	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
-	<title>SearchMovieDB</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.">
+  <meta name="theme-color" content="#f6f6f4">
+  <title>Что посмотреть — фильмы и сериалы</title>
+  <link rel="preload" href="assets/hero.jpg" as="image" fetchpriority="high">
+  <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
+  <link rel="stylesheet" href="main.css?v=20261001j">
+  <script>
+    try {
+      const choice = localStorage.getItem('movie-theme') || 'system';
+      const dark = choice === 'dark' || (choice === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    } catch (_) { /* The site remains usable when storage is unavailable. */ }
+    if (new URLSearchParams(location.search).has('view')) document.documentElement.dataset.route = 'detail';
+  </script>
+  <script type="module" src="fetchscript.js?v=20261001j"></script>
 </head>
 <body>
-<nav class="navbar">
-	<div class="container">
-		<a href="index.html" class="navbar-brand">🏠Главная</a>
-	</div>
-</nav>
-<div class="container">
-	<div class="jumbotron">
-		<h3 class="text-center" >Поиск фильмов</h3>
-		<form action="" id="search-form">
-			<input type="text" class="form-control" id="searchText" placeholder="Введите название...">
-		</form>
-	</div>
-	<div class="container">
-		<div id="movies" class="row"></div>
-	</div>
+  <a class="skip-link" href="#main-content">К содержанию</a>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="./" id="home-link">Что посмотреть</a>
+      <nav class="mode-nav" aria-label="Режим просмотра">
+        <button type="button" id="mode-search" aria-pressed="false">Поиск</button>
+        <button type="button" id="mode-pick" class="active" aria-pressed="true">Подбор</button>
+        <button type="button" id="mode-lists" aria-pressed="false">Списки</button>
+        <span class="nav-line pick" aria-hidden="true"></span>
+      </nav>
+      <label class="theme" for="theme-choice">
+        <span class="icon icon-sun theme-icon" aria-hidden="true"></span>
+        <select id="theme-choice" aria-label="Тема оформления">
+          <option value="system">Как на устройстве</option>
+          <option value="light">Светлая</option>
+          <option value="dark">Тёмная</option>
+        </select>
+      </label>
+    </header>
 
-<!--<script src="./script.js"></script>-->
-<script src="./fetchscript.js"></script>
+    <main id="main-content" tabindex="-1">
+      <div id="list-view" class="list-view">
+        <section class="hero" aria-label="Поиск фильма или сериала">
+          <img class="bracket" src="assets/bracket.png" width="78" height="318" alt="" aria-hidden="true">
+          <h1><span>ХОРОШЕЕ</span><span>КИНО.</span><span>БЕЗ <i class="long-word">ДОЛГИХ</i></span><span>ПОИСКОВ.</span></h1>
+          <div class="hero-image"><img src="assets/hero.jpg" width="657" height="219" alt="Космонавт на далёкой планете" fetchpriority="high"></div>
+          <form id="search-form" role="search">
+            <label class="input" for="search-query"><span class="sr-only">Название фильма или сериала</span><span class="icon icon-search" aria-hidden="true"></span><input id="search-query" type="search" placeholder="Название фильма или сериала" autocomplete="off"></label>
+            <button class="find" type="submit">Найти <span class="icon icon-arrow-right" aria-hidden="true"></span></button>
+          </form>
+        </section>
+
+        <section class="filters" aria-label="Настройки поиска и подбора">
+          <div id="pick-controls" class="filter-mode">
+            <div class="types" role="group" aria-label="Что подобрать">
+              <button type="button" data-pick-type="movie" class="chosen" aria-pressed="true">Фильмы</button>
+              <button type="button" data-pick-type="tv" aria-pressed="false">Сериалы</button>
+            </div>
+            <button type="button" class="filter-toggle" id="filter-toggle" aria-expanded="false" aria-controls="filter-fields"><span class="icon icon-sliders" aria-hidden="true"></span>Фильтры</button>
+            <div class="pick-filter-stack">
+              <div class="filter-fields" id="filter-fields">
+                <div class="genre-picker">
+                  <button type="button" class="genre-toggle" id="genre-toggle" aria-expanded="false" aria-controls="genre-popover"><span id="genre-label">Жанр:</span><span id="genre-summary" class="genre-summary">любой</span><span class="genre-caret" aria-hidden="true"></span></button>
+                  <div id="genre-popover" class="genre-popover" hidden>
+                    <div class="genre-popover-heading"><strong>Жанры</strong><button type="button" id="clear-genres" class="clear-genres" hidden>Сбросить</button></div>
+                    <p>Можно выбрать несколько</p>
+                    <div id="genre-options" class="genre-options" role="group" aria-label="Жанры"></div>
+                  </div>
+                </div>
+                <label class="sr-only" for="period">Год или период</label><select id="period"><option value="">Год: любой</option><option value="last5">Последние 5 лет</option><option value="2020s">2020-е</option><option value="2010s">2010-е</option><option value="2000s">2000-е</option><option value="1990s">1990-е</option><option value="before1990">До 1990</option></select>
+                <label class="sr-only" for="rating">Минимальная оценка</label><select id="rating"><option value="">Рейтинг: любой</option><option value="6">От 6,0</option><option value="7">От 7,0</option><option value="8">От 8,0</option></select>
+                <label class="sr-only" for="sort">Сортировка</label><select id="sort"><option value="popular">Популярные</option><option value="rating">По оценке</option><option value="newest">Новые</option></select>
+                <button type="button" class="show" id="apply-filters">Показать</button>
+              </div>
+              <div id="genre-chips" class="genre-chips" aria-live="polite" hidden></div>
+            </div>
+          </div>
+          <div id="search-controls" class="filter-mode" hidden>
+            <div class="types" role="group" aria-label="Тип поиска">
+              <button type="button" data-search-type="all" class="chosen" aria-pressed="true">Всё</button>
+              <button type="button" data-search-type="movie" aria-pressed="false">Фильмы</button>
+              <button type="button" data-search-type="tv" aria-pressed="false">Сериалы</button>
+            </div>
+            <p class="search-hint">Поиск по названию без фильтров подбора</p>
+          </div>
+          <div id="lists-controls" class="filter-mode list-controls" hidden>
+            <div class="list-copy"><strong>Готовые списки</strong><p>Обновляются по данным TMDB</p></div>
+            <div class="list-groups" aria-label="Списки фильмов и сериалов">
+              <div class="list-group"><span>Фильмы</span><div class="list-choices"><button type="button" data-list="trending-movie">В тренде</button><button type="button" data-list="popular-movie">Популярные</button><button type="button" data-list="top-rated-movie">Лучшие по оценкам</button><button type="button" data-list="now-playing-movie">Новые релизы</button><button type="button" data-list="upcoming-movie">Ожидаемые</button></div></div>
+              <div class="list-group"><span>Сериалы</span><div class="list-choices"><button type="button" data-list="trending-tv">В тренде</button><button type="button" data-list="popular-tv">Популярные</button><button type="button" data-list="top-rated-tv">Лучшие по оценкам</button></div></div>
+            </div>
+            <p class="list-note">Даты и доступность релизов зависят от региона.</p>
+          </div>
+        </section>
+
+        <section class="catalog" id="catalogue" aria-labelledby="catalog-title">
+          <div class="section-heading"><h2 id="catalog-title">Идеи для просмотра</h2><span>Оценки TMDB</span></div>
+          <p id="catalog-status" class="catalog-status" role="status" aria-live="polite"></p>
+          <div id="catalog-error" class="catalog-error" hidden><p id="catalog-error-text"></p><button type="button" id="retry-catalog">Повторить запрос</button></div>
+          <div id="movie-grid" class="grid" aria-busy="false"></div>
+          <div id="catalog-empty" class="empty" hidden><h3 id="empty-title">Ничего не найдено</h3><p>Попробуйте изменить запрос или параметры.</p></div>
+          <nav class="pagination" id="pagination" aria-label="Страницы результатов" hidden><button type="button" id="prev-page">Назад</button><span id="page-label"></span><button type="button" id="next-page">Далее</button></nav>
+        </section>
+      </div>
+
+      <section id="detail-view" class="detail-page" aria-label="Подробности" aria-labelledby="detail-title" hidden>
+        <a href="./" id="back-to-list" class="back-link"><span class="icon icon-arrow-left" aria-hidden="true"></span>К результатам</a>
+        <div id="detail-content" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer" aria-label="Источники данных">
+      <div class="tmdb-credit"><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer" aria-label="The Movie Database"><img src="assets/tmdb-logo.svg" width="42" height="42" alt="TMDB"></a><p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p></div>
+    </footer>
+  </div>
 </body>
 </html>

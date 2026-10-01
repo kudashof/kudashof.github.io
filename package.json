@@ -1,0 +1,9 @@
+{
+  "name": "movie-db-pages",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check fetchscript.js && node --check tmdb.js && node --check state.js",
+    "test": "node --test tests/*.test.mjs"
+  }
+}
