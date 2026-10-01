@@ -2,7 +2,7 @@ import { fetchCatalog, fetchDetail, fetchGenres, formatRating, imageUrl, READY_L
 import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261001c';
 
 const root = document.documentElement;
-if (new URLSearchParams(location.search).get('ratingDesign') === 'ring') root.dataset.ratingDesign = 'ring';
+root.dataset.ratingDesign = 'ring';
 const els = {
   home: document.querySelector('#home-link'),
   searchMode: document.querySelector('#mode-search'),
@@ -236,13 +236,19 @@ function countWord(count, forms) {
   return last === 1 ? forms[0] : last >= 2 && last <= 4 ? forms[1] : forms[2];
 }
 
-function scoreBadge(value, votes) {
+function scoreBadge(value, votes, { onPoster = false } = {}) {
   const valid = Number.isFinite(value) && value >= 0 && value <= 10 && Number.isInteger(votes) && votes > 0;
-  const tone = !valid || votes < 50 ? 'provisional' : value < 5.5 ? 'low' : value < 7.5 ? 'mid' : 'high';
-  const badge = node('span', 'score-badge score-' + tone);
-  badge.style.setProperty('--score-progress', valid && votes >= 50 ? value * 10 + '%' : '0%');
+  // Each whole rating has its own hue; fewer than 50 votes remain neutral.
+  const tier = !valid || votes < 50 || value < 5.5
+    ? 'muted'
+    : Math.min(10, Math.floor(Math.round(value * 10) / 10));
+  const confidence = votes >= 250 ? 'high' : votes >= 50 ? 'mid' : 'low';
+  const toneClass = tier === 'muted' ? 'score-muted' : `score-${tier}`;
+  const badge = node('span', `score-badge ${toneClass} score-confidence-${confidence}${onPoster ? ' score-badge--poster' : ''}`);
+  badge.style.setProperty('--score-progress', valid ? value * 10 + '%' : '0%');
   badge.append(node('span', 'score-value', valid ? formatRating(value, votes) : '—'));
-  if (valid) badge.append(node('small', 'score-scale', '/10'));
+  if (valid && !onPoster) badge.append(node('small', 'score-scale', '/10'));
+  badge.setAttribute('aria-hidden', 'true');
   return badge;
 }
 
@@ -271,6 +277,7 @@ function makeCard(item, index) {
     image.classList.add('is-placeholder');
   }, { once: true });
   poster.append(image);
+  poster.append(scoreBadge(item.rating, item.votes, { onPoster: true }));
   card.append(poster);
   card.append(node('h3', '', item.title));
   const mediaType = item.type === 'movie' ? 'Фильм' : 'Сериал';
@@ -280,11 +287,7 @@ function makeCard(item, index) {
   const genres = genreNames(item);
   if (genres) meta.append(node('span', 'card-genres', genres));
   card.append(meta);
-  const rating = node('div', 'rating');
-  rating.append(scoreBadge(item.rating, item.votes));
-  rating.append(node('small', 'score-votes', formatVotes(item.votes)));
-  card.append(rating);
-  const ratingLabel = item.votes ? `Оценка ${formatRating(item.rating, item.votes)} из 10, ${formatVotes(item.votes)}` : 'Оценок пока нет';
+  const ratingLabel = item.votes ? `Оценка ${formatRating(item.rating, item.votes)} из 10` : 'Оценок пока нет';
   card.setAttribute('aria-label', `Подробнее: ${item.title}. ${mediaType}, ${item.year || 'год неизвестен'}. ${ratingLabel}`);
   return card;
 }
