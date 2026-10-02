@@ -115,6 +115,11 @@ html[data-route=detail] .list-view{display:none}
   .hero form{grid-column:1/-1;grid-row:2}
 }
 @media(max-width:760px){
+  /* Keep Safari's mobile viewport anchored when content has wide intrinsic text. */
+  html,body{overflow-x:hidden}
+  @supports (overflow:clip){html,body{overflow-x:clip}}
+  .site-header,.hero,.hero form,.filters,#pick-controls,.pick-filter-stack,.catalog,.grid{min-width:0;max-width:100%}
+  .card h3{overflow-wrap:anywhere}
   .site-shell{padding:0 18px}main{padding:0}
   .site-header{padding:18px 0 12px}
   .mode-nav{order:3}
@@ -131,6 +136,8 @@ html[data-route=detail] .list-view{display:none}
   .filter-fields .show{flex:0 0 100%}
   .genre-popover{width:min(286px,calc(100vw - 36px))}
   .genre-chips{margin:8px 0 0}
+  .genre-chip{max-width:100%}
+  .genre-chip span:first-child{min-width:0;overflow-wrap:anywhere}
   .catalog-status{margin-top:8px}
   .catalog-error{flex-direction:column;align-items:flex-start}
   .catalog-error button{width:100%}
