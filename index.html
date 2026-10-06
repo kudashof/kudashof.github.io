@@ -5,13 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.">
   <meta name="theme-color" content="#f6f6f4">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Что посмотреть">
   <title>Что посмотреть — фильмы и сериалы</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/pwa-icon-192.png">
   <link rel="preload" href="assets/hero.jpg" as="image" fetchpriority="high">
   <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
-  <link rel="stylesheet" href="main.css?v=20261002a">
+  <link rel="stylesheet" href="main.css?v=20261007pwa">
   <script>
     try {
       const choice = localStorage.getItem('movie-theme') || 'system';
@@ -20,7 +25,7 @@
     } catch (_) { /* The site remains usable when storage is unavailable. */ }
     if (new URLSearchParams(location.search).has('view')) document.documentElement.dataset.route = 'detail';
   </script>
-  <script type="module" src="fetchscript.js?v=20261001j"></script>
+  <script type="module" src="fetchscript.js?v=20261007pwa"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">К содержанию</a>
@@ -31,6 +36,7 @@
         <button type="button" id="mode-search" aria-pressed="false">Поиск</button>
         <button type="button" id="mode-pick" class="active" aria-pressed="true">Подбор</button>
         <button type="button" id="mode-lists" aria-pressed="false">Списки</button>
+        <button type="button" id="mode-my" aria-pressed="false">Моё</button>
         <span class="nav-line pick" aria-hidden="true"></span>
       </nav>
       <label class="theme" for="theme-choice">
@@ -42,6 +48,7 @@
         </select>
       </label>
     </header>
+    <p id="network-status" class="network-status" role="status" hidden></p>
 
     <main id="main-content" tabindex="-1">
       <div id="list-view" class="list-view">
@@ -96,6 +103,14 @@
             </div>
             <p class="list-note">Даты и доступность релизов зависят от региона.</p>
           </div>
+          <div id="my-controls" class="filter-mode my-controls" hidden>
+            <div class="my-copy"><strong>Моё</strong><p>Списки сохранены только в этом браузере.</p></div>
+            <div class="my-tabs" role="group" aria-label="Мои списки">
+              <button type="button" data-library="later" class="chosen" aria-pressed="true">Посмотреть позже</button>
+              <button type="button" data-library="favorites" aria-pressed="false">Избранное</button>
+              <button type="button" data-library="watched" aria-pressed="false">Просмотрено</button>
+            </div>
+          </div>
         </section>
 
         <section class="catalog" id="catalogue" aria-labelledby="catalog-title">
@@ -103,7 +118,7 @@
           <p id="catalog-status" class="catalog-status" role="status" aria-live="polite"></p>
           <div id="catalog-error" class="catalog-error" hidden><p id="catalog-error-text"></p><button type="button" id="retry-catalog">Повторить запрос</button></div>
           <div id="movie-grid" class="grid" aria-busy="false"></div>
-          <div id="catalog-empty" class="empty" hidden><h3 id="empty-title">Ничего не найдено</h3><p>Попробуйте изменить запрос или параметры.</p></div>
+          <div id="catalog-empty" class="empty" hidden><h3 id="empty-title">Ничего не найдено</h3><p id="empty-copy">Попробуйте изменить запрос или параметры.</p></div>
           <nav class="pagination" id="pagination" aria-label="Страницы результатов" hidden><button type="button" id="prev-page">Назад</button><span id="page-label"></span><button type="button" id="next-page">Далее</button></nav>
         </section>
       </div>
@@ -116,6 +131,7 @@
 
     <footer class="site-footer" aria-label="Источники данных">
       <div class="tmdb-credit"><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer" aria-label="The Movie Database"><img src="assets/tmdb-logo.svg" width="42" height="42" alt="TMDB"></a><p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p></div>
+      <div class="pwa-actions"><button id="install-app" type="button" hidden>Установить приложение</button><p id="install-hint" hidden></p><p id="install-status" role="status" aria-live="polite" hidden></p></div>
     </footer>
   </div>
 </body>
