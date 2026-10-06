@@ -102,6 +102,14 @@ html[data-route=detail] .list-view{display:none}
 .trailer-box button{background:var(--lime);color:#080808;border:0;border-radius:4px;padding:14px 20px;font-weight:700;cursor:pointer}
 .trailer-box iframe{display:block;width:100%;aspect-ratio:16/9;border:0;margin-top:14px;background:#000}
 .detail-error{border:1px solid var(--border);padding:24px;background:var(--soft)}
+.detail-recommendations{min-width:0;margin-top:42px;padding-top:30px;border-top:1px solid var(--border)}
+.detail-recommendations>h2{margin:0 0 14px}
+.recommendations-status{margin:0;color:var(--muted);font-size:14px}
+.recommendations-grid{grid-template-columns:repeat(6,minmax(0,1fr));margin-top:0}
+.recommendations-error{display:flex;align-items:center;gap:16px;padding:14px 18px;border:1px solid var(--border);background:var(--soft)}
+.recommendations-error p{flex:1;margin:0;line-height:1.45}
+.recommendations-error button{border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:10px 16px;border-radius:4px;cursor:pointer}
+.recommendations-error button:hover{border-color:var(--fg)}
 .library-actions{margin:28px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:20px 0}
 .library-actions h2{margin:0 0 6px}
 .library-note,.library-status{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
@@ -165,6 +173,10 @@ html[data-route=detail] .list-view{display:none}
   .detail-page h1{font-size:clamp(32px,9vw,48px)}
   .detail-facts{font-size:13px}
   .detail-overview{font-size:15px}
+  .detail-recommendations{margin-top:32px;padding-top:24px}
+  .recommendations-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 14px}
+  .recommendations-error{flex-direction:column;align-items:flex-start}
+  .recommendations-error button{width:100%}
   .site-footer{margin-top:30px}
   .library-buttons{display:grid;grid-template-columns:1fr}.library-buttons button{width:100%}
   .my-copy{padding:0 0 12px}.my-tabs{border-left:0;border-top:1px solid var(--border);padding:12px 0 0}.my-tabs button{font-size:12px}
