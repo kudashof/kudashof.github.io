@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { apiGet, buildDiscoverRequest, buildListRequest, buildSearchRequest, imageUrl, normalizeMedia, periodBounds, pickTrailer } from '../tmdb.js';
 import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from '../state.js';
+import { LIBRARY_STORAGE_KEY, libraryItems, libraryState, readLibrary, toggleLibraryState } from '../library.js';
 
 test('URL state round trips search and detail context', () => {
   const state = { ...DEFAULT_STATE, mode: 'search', q: 'Амели', searchType: 'tv', page: 3, view: 'tv', id: 123 };
@@ -19,6 +21,41 @@ test('invalid URL values fall back to safe list defaults', () => {
 test('legacy single-genre links remain valid multi-genre state', () => {
   assert.deepEqual(parseState('https://example.com/?genre=18').genres, ['18']);
   assert.deepEqual(parseState('https://example.com/?genres=10759%3A0,10765%3A0').genres, ['10759:0', '10765:0']);
+});
+
+test('URL state round trips local library and keeps it when opening a detail page', () => {
+  const state = { ...DEFAULT_STATE, mode: 'my', library: 'favorites', view: 'movie', id: 42 };
+  const url = stateUrl(state, 'https://example.com/');
+  assert.equal(url.search, '?mode=my&my=favorites&view=movie&id=42');
+  assert.deepEqual(parseState(url.href), state);
+  assert.deepEqual(listState(state), { ...state, view: '', id: 0 });
+});
+
+test('local library keeps independent states and removes an item only when all states are off', () => {
+  const values = new Map();
+  const storage = { getItem: key => values.get(key) || null, setItem: (key, value) => values.set(key, value) };
+  const item = { id: 194, type: 'movie', title: 'Амели', year: '2001', poster: 'https://image.tmdb.org/t/p/w342/amelie.jpg', rating: 7.9, votes: 100 };
+  assert.equal(toggleLibraryState(item, 'later', { storage, now: 1 }).active, true);
+  assert.equal(libraryState(item, 'later', storage), true);
+  assert.equal(toggleLibraryState(item, 'favorites', { storage, now: 2 }).active, true);
+  assert.equal(libraryItems('later', storage).length, 1);
+  assert.equal(libraryItems('favorites', storage).length, 1);
+  assert.equal(toggleLibraryState(item, 'later', { storage, now: 3 }).active, false);
+  assert.equal(libraryItems('later', storage).length, 0);
+  assert.equal(readLibrary(storage).length, 1);
+  assert.equal(toggleLibraryState(item, 'favorites', { storage, now: 4 }).active, false);
+  assert.equal(readLibrary(storage).length, 0);
+  assert.match(values.get(LIBRARY_STORAGE_KEY), /"items":\[\]/);
+});
+
+test('PWA manifest is installable and the application references it', async () => {
+  const manifest = JSON.parse(await readFile(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));
+  const index = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  assert.equal(manifest.start_url, './');
+  assert.equal(manifest.display, 'standalone');
+  assert.deepEqual(manifest.icons.map(icon => icon.sizes), ['192x192', '512x512']);
+  assert.match(index, /rel="manifest" href="manifest\.webmanifest"/);
+  assert.match(index, /apple-touch-icon/);
 });
 
 test('search request targets title search and keeps media type', () => {

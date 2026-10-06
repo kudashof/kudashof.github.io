@@ -1,5 +1,6 @@
-import { fetchCatalog, fetchDetail, fetchGenres, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261001c';
-import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261001c';
+import { fetchCatalog, fetchDetail, fetchGenres, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007pwa';
+import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007pwa';
+import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007pwa';
 
 const root = document.documentElement;
 root.dataset.ratingDesign = 'ring';
@@ -8,6 +9,7 @@ const els = {
   searchMode: document.querySelector('#mode-search'),
   pickMode: document.querySelector('#mode-pick'),
   listsMode: document.querySelector('#mode-lists'),
+  myMode: document.querySelector('#mode-my'),
   navLine: document.querySelector('.nav-line'),
   theme: document.querySelector('#theme-choice'),
   themeIcon: document.querySelector('.theme-icon'),
@@ -16,6 +18,7 @@ const els = {
   pickControls: document.querySelector('#pick-controls'),
   searchControls: document.querySelector('#search-controls'),
   listsControls: document.querySelector('#lists-controls'),
+  myControls: document.querySelector('#my-controls'),
   filters: document.querySelector('.filters'),
   filterToggle: document.querySelector('#filter-toggle'),
   genrePicker: document.querySelector('.genre-picker'),
@@ -35,6 +38,7 @@ const els = {
   grid: document.querySelector('#movie-grid'),
   empty: document.querySelector('#catalog-empty'),
   emptyTitle: document.querySelector('#empty-title'),
+  emptyCopy: document.querySelector('#empty-copy'),
   error: document.querySelector('#catalog-error'),
   errorText: document.querySelector('#catalog-error-text'),
   retry: document.querySelector('#retry-catalog'),
@@ -46,6 +50,10 @@ const els = {
   detail: document.querySelector('#detail-view'),
   detailContent: document.querySelector('#detail-content'),
   back: document.querySelector('#back-to-list'),
+  networkStatus: document.querySelector('#network-status'),
+  installButton: document.querySelector('#install-app'),
+  installHint: document.querySelector('#install-hint'),
+  installStatus: document.querySelector('#install-status'),
 };
 
 let state = parseState(location.href);
@@ -63,6 +71,7 @@ const genreOptionsData = { movie: null, tv: null };
 const genrePromises = { movie: null, tv: null };
 const systemTheme = matchMedia('(prefers-color-scheme: dark)');
 let themeChoice = 'system';
+let installPrompt = null;
 try { themeChoice = localStorage.getItem('movie-theme') || 'system'; } catch (_) {}
 if (!['light', 'dark', 'system'].includes(themeChoice)) themeChoice = 'system';
 
@@ -103,24 +112,30 @@ function setChoiceButtons(selector, chosen, attribute) {
 function renderControls() {
   const search = state.mode === 'search';
   const lists = state.mode === 'lists';
+  const mine = state.mode === 'my';
   const list = READY_LISTS[state.list] || READY_LISTS['trending-movie'];
   setPageMeta(
-    search && state.q ? `Поиск: ${state.q} — Что посмотреть` : lists ? `${list.title} — Что посмотреть` : 'Что посмотреть — фильмы и сериалы',
-    search && state.q ? `Результаты поиска фильмов и сериалов по запросу «${state.q}» на основе данных TMDB.` : lists ? `${list.title} по данным TMDB.` : 'Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.',
+    search && state.q ? `Поиск: ${state.q} — Что посмотреть` : lists ? `${list.title} — Что посмотреть` : mine ? `${LIBRARY_SECTIONS[state.library].label} — Что посмотреть` : 'Что посмотреть — фильмы и сериалы',
+    search && state.q ? `Результаты поиска фильмов и сериалов по запросу «${state.q}» на основе данных TMDB.` : lists ? `${list.title} по данным TMDB.` : mine ? `${LIBRARY_SECTIONS[state.library].label}. Данные хранятся только в этом браузере.` : 'Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.',
   );
   els.searchMode.classList.toggle('active', search);
-  els.pickMode.classList.toggle('active', !search && !lists);
+  els.pickMode.classList.toggle('active', !search && !lists && !mine);
   els.listsMode.classList.toggle('active', lists);
+  els.myMode.classList.toggle('active', mine);
   els.searchMode.setAttribute('aria-pressed', String(search));
-  els.pickMode.setAttribute('aria-pressed', String(!search && !lists));
+  els.pickMode.setAttribute('aria-pressed', String(!search && !lists && !mine));
   els.listsMode.setAttribute('aria-pressed', String(lists));
-  els.navLine.classList.toggle('pick', !search && !lists);
+  els.myMode.setAttribute('aria-pressed', String(mine));
+  els.navLine.classList.toggle('pick', !search && !lists && !mine);
   els.navLine.classList.toggle('search', search);
   els.navLine.classList.toggle('lists', lists);
-  els.pickControls.hidden = search || lists;
+  els.navLine.classList.toggle('my', mine);
+  els.pickControls.hidden = search || lists || mine;
   els.searchControls.hidden = !search;
   els.listsControls.hidden = !lists;
-  els.title.textContent = search ? 'Результаты поиска' : lists ? list.title : 'Идеи для просмотра';
+  els.myControls.hidden = !mine;
+  setChoiceButtons('[data-library]', state.library, 'library');
+  els.title.textContent = search ? 'Результаты поиска' : lists ? list.title : mine ? LIBRARY_SECTIONS[state.library].label : 'Идеи для просмотра';
   els.searchInput.value = state.q;
   draftPickType = state.pickType;
   draftSearchType = state.searchType;
@@ -219,6 +234,7 @@ function orderGenresByPopularity(type, items) {
 }
 
 function genreNames(item) {
+  if (Array.isArray(item.genreLabels) && item.genreLabels.length) return item.genreLabels.slice(0, 2).join(', ');
   const list = genreData[item.type] || [];
   return item.genres.map(id => list.find(genre => genre.id === id)?.name).filter(Boolean).slice(0, 2).join(', ');
 }
@@ -296,7 +312,10 @@ function renderCatalog(result, animate = true) {
   els.grid.classList.toggle('no-motion', !animate);
   els.grid.replaceChildren(...result.items.map(makeCard));
   els.empty.hidden = result.items.length > 0;
-  if (!result.items.length) els.emptyTitle.textContent = state.mode === 'search' ? 'Ничего не найдено' : state.mode === 'lists' ? 'В списке пока нет фильмов' : 'Подборка пуста';
+  if (!result.items.length) {
+    els.emptyTitle.textContent = state.mode === 'search' ? 'Ничего не найдено' : state.mode === 'lists' ? 'В списке пока нет фильмов' : state.mode === 'my' ? `В «${LIBRARY_SECTIONS[state.library].label}» пока пусто` : 'Подборка пуста';
+    els.emptyCopy.textContent = state.mode === 'my' ? 'Открой карточку фильма или сериала и добавь его в этот список.' : 'Попробуйте изменить запрос или параметры.';
+  }
   const totalPages = Math.max(1, result.totalPages);
   els.pages.hidden = totalPages <= 1;
   els.prev.disabled = state.page <= 1;
@@ -323,6 +342,12 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     els.status.textContent = '';
     return;
   }
+  if (state.mode === 'my') {
+    const result = { items: libraryItems(state.library), page: 1, totalPages: 1 };
+    catalogCache.set(key, result);
+    renderCatalog(result, animate);
+    return;
+  }
   activeCatalog?.abort();
   activeCatalog = new AbortController();
   const sequence = ++catalogSequence;
@@ -330,7 +355,7 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   els.grid.classList.add('updating');
   els.empty.hidden = true;
   els.error.hidden = true;
-  const updateLabel = state.mode === 'lists' ? 'Обновляем список' : 'Обновляем подборку';
+  const updateLabel = state.mode === 'lists' ? 'Обновляем список' : state.mode === 'search' ? 'Обновляем результаты поиска' : 'Обновляем подборку';
   els.status.textContent = els.grid.children.length ? `${updateLabel}; пока показаны прежние результаты…` : 'Загружаем результаты…';
   try {
     const genresNeeded = state.mode === 'search'
@@ -418,6 +443,48 @@ function renderDetail(data) {
   scoreInfo.append(node('span', 'score-votes', formatVotes(data.vote_count)));
   score.append(scoreInfo);
   content.append(score);
+  const library = node('section', 'library-actions');
+  library.setAttribute('aria-label', 'Моё');
+  library.append(node('h2', '', 'Моё'));
+  const libraryNote = node('p', 'library-note', 'Списки хранятся только в этом браузере.');
+  const libraryButtons = node('div', 'library-buttons');
+  const libraryStatus = node('p', 'library-status');
+  libraryStatus.setAttribute('role', 'status');
+  libraryStatus.setAttribute('aria-live', 'polite');
+  const savedItem = {
+    id: data.id,
+    type: data.type,
+    title,
+    year: typeof date === 'string' && /^\d{4}/.test(date) ? date.slice(0, 4) : '',
+    poster: imageUrl(data.poster_path),
+    posterLarge: imageUrl(data.poster_path, 'w500'),
+    genreLabels: Array.isArray(data.genres) ? data.genres.map(genre => genre.name).filter(Boolean) : [],
+    rating: Number(data.vote_average) || 0,
+    votes: Number(data.vote_count) || 0,
+  };
+  const drawLibraryActions = () => {
+    libraryButtons.replaceChildren();
+    for (const [section, meta] of Object.entries(LIBRARY_SECTIONS)) {
+      const active = libraryState(savedItem, section);
+      const button = node('button', active ? 'is-active' : '', active ? meta.activeLabel : meta.label);
+      button.type = 'button';
+      button.setAttribute('aria-pressed', String(active));
+      button.addEventListener('click', () => {
+        const result = toggleLibraryState(savedItem, section);
+        if (!result.saved) {
+          libraryStatus.textContent = 'Не удалось сохранить список в этом браузере.';
+          return;
+        }
+        catalogCache.clear();
+        drawLibraryActions();
+        libraryStatus.textContent = result.active ? `Добавлено: ${meta.label}.` : `Убрано: ${meta.label}.`;
+      });
+      libraryButtons.append(button);
+    }
+  };
+  drawLibraryActions();
+  library.append(libraryNote, libraryButtons, libraryStatus);
+  content.append(library);
   content.append(node('h2', '', data.type === 'tv' ? 'О сериале' : 'О фильме'));
   content.append(node('p', 'detail-overview', data.overview || 'Описание пока недоступно.'));
   const trailerBox = node('div', 'trailer-box');
@@ -529,6 +596,10 @@ els.listsMode.addEventListener('click', () => {
   if (state.mode === 'lists' && !state.view) return;
   switchRoute({ ...state, mode: 'lists', page: 1 });
 });
+els.myMode.addEventListener('click', () => {
+  if (state.mode === 'my' && !state.view) return;
+  switchRoute({ ...state, mode: 'my', page: 1 });
+});
 els.home.addEventListener('click', event => {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
@@ -554,6 +625,11 @@ document.querySelectorAll('[data-list]').forEach(button => button.addEventListen
   const list = button.dataset.list;
   if (!READY_LISTS[list] || (state.mode === 'lists' && list === state.list)) return;
   switchRoute({ ...state, mode: 'lists', list, page: 1 }, { scrollTop: false, scrollCatalog: true });
+}));
+document.querySelectorAll('[data-library]').forEach(button => button.addEventListener('click', () => {
+  const library = button.dataset.library;
+  if (!LIBRARY_SECTIONS[library] || (state.mode === 'my' && library === state.library)) return;
+  switchRoute({ ...state, mode: 'my', library, page: 1 }, { scrollTop: false, scrollCatalog: true });
 }));
 els.filterToggle.addEventListener('click', () => {
   const open = els.pickControls.classList.toggle('opened');
@@ -613,7 +689,55 @@ window.addEventListener('popstate', event => {
   }
 });
 
+function updateNetworkStatus() {
+  const offline = navigator.onLine === false;
+  els.networkStatus.hidden = !offline;
+  els.networkStatus.textContent = offline ? 'Нет подключения. Интерфейс и сохранённые списки доступны, но новые данные TMDB не загрузятся.' : '';
+}
+
+function isStandalone() {
+  return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
+function showInstallHint() {
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (ios && !isStandalone()) {
+    els.installHint.hidden = false;
+    els.installHint.textContent = 'На iPhone: «Поделиться» → «На экран Домой».';
+  }
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {
+    // The website remains fully usable if a browser blocks service workers.
+  });
+}
+window.addEventListener('online', updateNetworkStatus);
+window.addEventListener('offline', updateNetworkStatus);
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  installPrompt = event;
+  els.installButton.hidden = false;
+});
+els.installButton.addEventListener('click', async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  const result = await installPrompt.userChoice;
+  installPrompt = null;
+  els.installButton.hidden = true;
+  els.installStatus.hidden = false;
+  els.installStatus.textContent = result.outcome === 'accepted' ? 'Приложение установлено.' : 'Установка отменена.';
+});
+window.addEventListener('appinstalled', () => {
+  els.installButton.hidden = true;
+  els.installHint.hidden = true;
+  els.installStatus.hidden = false;
+  els.installStatus.textContent = 'Приложение установлено.';
+});
+
 applyTheme();
+updateNetworkStatus();
+showInstallHint();
 renderControls();
 if (state.view) showDetail();
 else restoreList(history.state?.scrollY || 0);

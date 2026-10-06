@@ -1,6 +1,6 @@
 export const DEFAULT_STATE = Object.freeze({
   mode: 'pick', q: '', searchType: 'all', pickType: 'movie',
-  genres: [], period: '', rating: '', sort: 'popular', list: 'trending-movie', page: 1,
+  genres: [], period: '', rating: '', sort: 'popular', list: 'trending-movie', library: 'later', page: 1,
   view: '', id: 0,
 });
 
@@ -9,6 +9,7 @@ const RATINGS = new Set(['', '6', '7', '8']);
 const SORTS = new Set(['popular', 'rating', 'newest']);
 const SEARCH_TYPES = new Set(['all', 'movie', 'tv']);
 const LISTS = new Set(['trending-movie', 'popular-movie', 'top-rated-movie', 'now-playing-movie', 'upcoming-movie', 'trending-tv', 'popular-tv', 'top-rated-tv']);
+const LIBRARY_SECTIONS = new Set(['later', 'favorites', 'watched']);
 
 function parseGenres(params) {
   const values = (params.get('genres') || params.get('genre') || '').split(',');
@@ -18,7 +19,7 @@ function parseGenres(params) {
 export function parseState(input) {
   const url = new URL(input, 'https://example.invalid/');
   const params = url.searchParams;
-  const mode = ['search', 'lists'].includes(params.get('mode')) ? params.get('mode') : 'pick';
+  const mode = ['search', 'lists', 'my'].includes(params.get('mode')) ? params.get('mode') : 'pick';
   const page = Number(params.get('page'));
   const id = Number(params.get('id'));
   const view = params.get('view');
@@ -33,6 +34,7 @@ export function parseState(input) {
     rating: RATINGS.has(params.get('rating')) ? params.get('rating') : '',
     sort: SORTS.has(params.get('sort')) ? params.get('sort') : 'popular',
     list: LISTS.has(params.get('list')) ? params.get('list') : 'trending-movie',
+    library: LIBRARY_SECTIONS.has(params.get('my')) ? params.get('my') : 'later',
     page: Number.isInteger(page) && page > 0 ? Math.min(page, 500) : 1,
     view: validDetail ? view : '',
     id: validDetail ? id : 0,
@@ -59,6 +61,7 @@ export function stateUrl(state, currentUrl) {
     if (state.sort !== 'popular') url.searchParams.set('sort', state.sort);
   }
   if (state.mode === 'lists' && state.list !== 'trending-movie') url.searchParams.set('list', state.list);
+  if (state.mode === 'my' && state.library !== 'later') url.searchParams.set('my', state.library);
   if (state.page > 1) url.searchParams.set('page', String(state.page));
   if (state.view && state.id) {
     url.searchParams.set('view', state.view);
@@ -68,6 +71,6 @@ export function stateUrl(state, currentUrl) {
 }
 
 export function catalogKey(state) {
-  const { mode, q, searchType, pickType, genres, period, rating, sort, list, page } = state;
-  return JSON.stringify({ mode, q, searchType, pickType, genres, period, rating, sort, list, page });
+  const { mode, q, searchType, pickType, genres, period, rating, sort, list, library, page } = state;
+  return JSON.stringify({ mode, q, searchType, pickType, genres, period, rating, sort, list, library, page });
 }
