@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "project": "MovieDB",
+  "updated": "2026-10-07",
+  "sourceOfTruth": "docs/harness/README.md",
+  "productGoal": "Сократить путь от неопределённости до обоснованного выбора и облегчить возвращение к выбранному фильму или сериалу.",
+  "constraints": [
+    "static-github-pages",
+    "no-server",
+    "tmdb-as-catalog-source",
+    "browser-local-personal-data",
+    "real-iphone-safari-release-gate"
+  ],
+  "allowedStatuses": [
+    "idea",
+    "researched",
+    "ready_for_decision",
+    "approved",
+    "in_progress",
+    "verified",
+    "released",
+    "paused",
+    "rejected"
+  ],
+  "features": [
+    {
+      "id": "REC-001",
+      "title": "Рекомендации на карточке",
+      "priority": "now",
+      "status": "ready_for_decision",
+      "decision": "required",
+      "brief": "docs/harness/features/recommendations.md",
+      "dependsOn": []
+    },
+    {
+      "id": "SHARE-001",
+      "title": "Поделиться карточкой и подбором",
+      "priority": "now",
+      "status": "ready_for_decision",
+      "decision": "required",
+      "brief": "docs/harness/features/share.md",
+      "dependsOn": []
+    },
+    {
+      "id": "LIB-PORT-001",
+      "title": "Экспорт и импорт раздела «Моё»",
+      "priority": "later",
+      "status": "researched",
+      "decision": "required",
+      "brief": "docs/harness/features/library-portability.md",
+      "dependsOn": []
+    },
+    {
+      "id": "EDIT-001",
+      "title": "Редакционные подборки",
+      "priority": "research",
+      "status": "idea",
+      "decision": "required",
+      "brief": "docs/harness/features/editorial-collections.md",
+      "dependsOn": []
+    },
+    {
+      "id": "PROVIDERS-001",
+      "title": "Где смотреть",
+      "priority": "research",
+      "status": "researched",
+      "decision": "required",
+      "brief": "docs/harness/features/watch-providers.md",
+      "dependsOn": []
+    }
+  ]
+}
