@@ -116,9 +116,11 @@ function setChoiceButtons(selector, chosen, attribute) {
 function makeShareControls({ detailTitle = '', catalog = false } = {}) {
   const controls = node('div', 'share-controls');
   const row = node('div', 'share-action-row');
-  const button = node('button', 'share-button', 'Поделиться');
+  const button = node('button', 'share-button');
   button.type = 'button';
   button.setAttribute('aria-label', catalog ? 'Поделиться ссылкой на текущий каталог' : 'Поделиться карточкой');
+  button.title = button.getAttribute('aria-label');
+  button.append(icon('share'));
   const status = node('p', 'share-status');
   status.setAttribute('role', 'status');
   status.setAttribute('aria-live', 'polite');

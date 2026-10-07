@@ -23,6 +23,7 @@ main{max-width:none;margin:0;padding:0}
 .icon-moon{--icon:url('assets/icons/moon.svg')}
 .icon-sliders{--icon:url('assets/icons/sliders-horizontal.svg')}
 .icon-star{--icon:url('assets/icons/star-fill.svg');width:17px;height:17px;color:#e9b000}
+.icon-share{--icon:url('assets/icons/share.svg');width:24px;height:24px}
 .theme-icon{color:#9dbf00;width:25px;height:25px}
 .find:hover .icon-arrow-right{transform:translateX(5px)}
 .input:focus-within{outline:3px solid #809c00;outline-offset:3px}
@@ -105,7 +106,7 @@ html[data-route=detail] .list-view{display:none}
 .catalog-share{margin-top:12px}
 .share-controls{min-width:0;max-width:100%}
 .share-action-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
-.share-button{min-height:44px;padding:10px 16px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);font-weight:600;cursor:pointer}
+.share-button{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;flex:none;padding:9px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);cursor:pointer}
 .share-button:hover{border-color:var(--fg)}
 .share-button:disabled{opacity:.6;cursor:wait}
 .share-status,.share-note{margin:0;color:var(--muted);font-size:13px;line-height:1.45;overflow-wrap:anywhere}

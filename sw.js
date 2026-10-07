@@ -1,9 +1,9 @@
-const CACHE_NAME = 'movie-db-shell-v4';
+const CACHE_NAME = 'movie-db-shell-v5';
 const APP_SHELL = [
   './',
   './index.html',
-  './main.css?v=20261007share1',
-  './fetchscript.js?v=20261007share1',
+  './main.css?v=20261007shareicon1',
+  './fetchscript.js?v=20261007shareicon1',
   './state.js?v=20261007pwa',
   './tmdb.js?v=20261007rec2',
   './tmdb-config.js',
@@ -21,6 +21,7 @@ const APP_SHELL = [
   './assets/icons/moon.svg',
   './assets/icons/sliders-horizontal.svg',
   './assets/icons/star-fill.svg',
+  './assets/icons/share.svg',
   './assets/icons/sun.svg',
 ];
 

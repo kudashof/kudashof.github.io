@@ -1,10 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { DEFAULT_STATE, parseState } from '../state.js';
 import { buildSharePayload, shareLink } from '../share.js';
 
 const currentUrl = 'https://kudashof.github.io/?theme=dark&unexpected=value#section';
 const payload = { title: 'Амели', text: 'Карточка фильма', url: 'https://kudashof.github.io/?view=movie&id=194' };
+
+test('share pictogram is a local theme-aware asset included in the offline shell', async () => {
+  const css = await readFile(new URL('../main.css', import.meta.url), 'utf8');
+  const shell = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
+  const svg = await readFile(new URL('../assets/icons/share.svg', import.meta.url), 'utf8');
+  assert.match(css, /\.icon-share\{--icon:url\('assets\/icons\/share\.svg'\)/);
+  assert.ok(shell.includes("'./assets/icons/share.svg'"));
+  assert.match(svg, /viewBox="0 0 24 24"/);
+  assert.match(svg, /stroke="currentColor"/);
+  assert.doesNotMatch(svg, /<(?:script|image|foreignObject)\b|href=/);
+});
 
 test('share preserves pick filters and page, removing unrelated URL parameters and fragments', () => {
   const state = { ...DEFAULT_STATE, pickType: 'tv', genres: ['18', '35'], period: '2010s', rating: '7', sort: 'rating', page: 3 };
