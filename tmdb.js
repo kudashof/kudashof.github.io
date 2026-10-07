@@ -156,6 +156,14 @@ export async function fetchGenres(type, options = {}) {
   return Array.isArray(data.genres) ? data.genres.filter(g => Number.isInteger(g.id) && typeof g.name === 'string') : [];
 }
 
+export async function fetchMedia(type, id, options = {}) {
+  if (!['movie', 'tv'].includes(type) || !Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid media address');
+  const data = await apiGet(`/${type}/${id}`, { language: 'ru-RU' }, options);
+  const item = normalizeMedia(data, type);
+  if (!item || item.id !== id) throw new Error('Invalid media response');
+  return { ...item, genreLabels: Array.isArray(data.genres) ? data.genres.map(genre => genre.name).filter(name => typeof name === 'string') : [] };
+}
+
 export async function fetchRecommendations(type, id, options = {}) {
   const request = buildRecommendationsRequest(type, id);
   const data = await apiGet(request.path, request.params, options);

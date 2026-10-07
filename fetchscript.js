@@ -1,7 +1,9 @@
-import { fetchCatalog, fetchDetail, fetchGenres, fetchRecommendations, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007rec2';
-import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007pwa';
-import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007pwa';
-import { buildSharePayload, shareLink } from './share.js?v=20261007share1';
+import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007package5';
+import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007package5';
+import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007package5';
+import { buildSharePayload, shareLink } from './share.js?v=20261007package5';
+import { mountLibraryBackup } from './backup-ui.js?v=20261007package5';
+import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007package5';
 
 const root = document.documentElement;
 root.dataset.ratingDesign = 'ring';
@@ -20,6 +22,8 @@ const els = {
   searchControls: document.querySelector('#search-controls'),
   listsControls: document.querySelector('#lists-controls'),
   myControls: document.querySelector('#my-controls'),
+  backup: document.querySelector('#library-backup'),
+  editorialIntro: document.querySelector('#editorial-intro'),
   filters: document.querySelector('.filters'),
   filterToggle: document.querySelector('#filter-toggle'),
   genrePicker: document.querySelector('.genre-picker'),
@@ -169,10 +173,11 @@ function renderControls() {
   const search = state.mode === 'search';
   const lists = state.mode === 'lists';
   const mine = state.mode === 'my';
-  const list = READY_LISTS[state.list] || READY_LISTS['trending-movie'];
+  const collection = lists && editorialCollection(state.list);
+  const list = collection || READY_LISTS[state.list] || READY_LISTS['trending-movie'];
   setPageMeta(
     search && state.q ? `Поиск: ${state.q} — Что посмотреть` : lists ? `${list.title} — Что посмотреть` : mine ? `${LIBRARY_SECTIONS[state.library].label} — Что посмотреть` : 'Что посмотреть — фильмы и сериалы',
-    search && state.q ? `Результаты поиска фильмов и сериалов по запросу «${state.q}» на основе данных TMDB.` : lists ? `${list.title} по данным TMDB.` : mine ? `${LIBRARY_SECTIONS[state.library].label}. Данные хранятся только в этом браузере.` : 'Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.',
+    search && state.q ? `Результаты поиска фильмов и сериалов по запросу «${state.q}» на основе данных TMDB.` : collection ? collection.promise : lists ? `${list.title} по данным TMDB.` : mine ? `${LIBRARY_SECTIONS[state.library].label}. Данные хранятся только в этом браузере.` : 'Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.',
   );
   els.searchMode.classList.toggle('active', search);
   els.pickMode.classList.toggle('active', !search && !lists && !mine);
@@ -190,6 +195,14 @@ function renderControls() {
   els.searchControls.hidden = !search;
   els.listsControls.hidden = !lists;
   els.myControls.hidden = !mine;
+  els.backup.hidden = !mine;
+  if (mine) updateBackup();
+  els.editorialIntro.hidden = !collection;
+  els.editorialIntro.replaceChildren();
+  if (collection) {
+    els.editorialIntro.append(node('p', 'editorial-promise', collection.promise));
+    els.editorialIntro.append(node('p', 'editorial-meta', `${collection.status === 'draft' ? 'Черновик · ждёт утверждения содержания. ' : 'Редакционная подборка. '}${collection.owner}. Обновлено: ${collection.updated}.${collection.reviewDue ? ` Следующая проверка: ${collection.reviewDue}.` : ''} Метаданные и оценки — TMDB.`));
+  }
   setChoiceButtons('[data-library]', state.library, 'library');
   els.title.textContent = search ? 'Результаты поиска' : lists ? list.title : mine ? LIBRARY_SECTIONS[state.library].label : 'Идеи для просмотра';
   els.catalogShare.replaceChildren(makeShareControls({ catalog: true }));
@@ -293,7 +306,7 @@ function orderGenresByPopularity(type, items) {
 function genreNames(item) {
   if (Array.isArray(item.genreLabels) && item.genreLabels.length) return item.genreLabels.slice(0, 2).join(', ');
   const list = genreData[item.type] || [];
-  return item.genres.map(id => list.find(genre => genre.id === id)?.name).filter(Boolean).slice(0, 2).join(', ');
+  return (item.genres || []).map(id => list.find(genre => genre.id === id)?.name).filter(Boolean).slice(0, 2).join(', ');
 }
 
 function formatVotes(votes) {
@@ -360,6 +373,12 @@ function makeCard(item, index, { numbered = true, recommendation = false } = {})
   const genres = genreNames(item);
   if (genres) meta.append(node('span', 'card-genres', genres));
   card.append(meta);
+  if (item.reason) {
+    const reason = node('p', 'editorial-reason', item.reason);
+    reason.id = `why-${item.type}-${item.id}`;
+    card.setAttribute('aria-describedby', reason.id);
+    card.append(reason);
+  }
   const ratingLabel = item.votes ? `Оценка ${formatRating(item.rating, item.votes)} из 10` : 'Оценок пока нет';
   card.setAttribute('aria-label', `Подробнее: ${item.title}. ${mediaType}, ${item.year || 'год неизвестен'}. ${ratingLabel}`);
   return card;
@@ -371,7 +390,7 @@ function renderCatalog(result, animate = true) {
   els.empty.hidden = result.items.length > 0;
   if (!result.items.length) {
     els.emptyTitle.textContent = state.mode === 'search' ? 'Ничего не найдено' : state.mode === 'lists' ? 'В списке пока нет фильмов' : state.mode === 'my' ? `В «${LIBRARY_SECTIONS[state.library].label}» пока пусто` : 'Подборка пуста';
-    els.emptyCopy.textContent = state.mode === 'my' ? 'Открой карточку фильма или сериала и добавь его в этот список.' : 'Попробуйте изменить запрос или параметры.';
+    els.emptyCopy.textContent = state.mode === 'my' ? 'Открой карточку фильма или сериала и добавь его в этот список.' : state.mode === 'lists' && editorialCollection(state.list) ? 'Сейчас не удалось загрузить карточки подборки. Проверь соединение и повтори запрос.' : 'Попробуйте изменить запрос или параметры.';
   }
   const totalPages = Math.max(1, result.totalPages);
   els.pages.hidden = totalPages <= 1;
@@ -381,7 +400,10 @@ function renderCatalog(result, animate = true) {
   els.grid.setAttribute('aria-busy', 'false');
   els.grid.classList.remove('updating');
   els.status.textContent = result.items.length ? 'Показано ' + result.items.length + ' результатов' : '';
-  els.error.hidden = true;
+  els.error.hidden = !result.missing;
+  if (result.missing) {
+    els.errorText.textContent = `Не удалось загрузить ${result.missing} из ${result.items.length + result.missing} карточек. Показаны доступные; можно повторить запрос.`;
+  }
 }
 
 async function loadCatalog({ animate = true, force = false } = {}) {
@@ -415,12 +437,13 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   const updateLabel = state.mode === 'lists' ? 'Обновляем список' : state.mode === 'search' ? 'Обновляем результаты поиска' : 'Обновляем подборку';
   els.status.textContent = els.grid.children.length ? `${updateLabel}; пока показаны прежние результаты…` : 'Загружаем результаты…';
   try {
+    const collection = state.mode === 'lists' && editorialCollection(state.list);
     const genresNeeded = state.mode === 'search'
       ? Promise.all([ensureGenres('movie'), ensureGenres('tv')])
       : state.mode === 'lists'
         ? ensureGenres((READY_LISTS[state.list] || READY_LISTS['trending-movie']).type)
         : ensureGenres(state.pickType);
-    const [result] = await Promise.all([fetchCatalog(state, { signal: activeCatalog.signal }), genresNeeded]);
+    const [result] = await Promise.all([collection ? fetchEditorial(collection, { getMedia: fetchMedia, signal: activeCatalog.signal }) : fetchCatalog(state, { signal: activeCatalog.signal }), genresNeeded]);
     if (sequence !== catalogSequence) return;
     if (state.mode === 'pick') orderGenresByPopularity(state.pickType, result.items);
     catalogCache.set(key, result);
@@ -743,9 +766,20 @@ document.querySelectorAll('[data-search-type]').forEach(button => button.addEven
   setChoiceButtons('[data-search-type]', draftSearchType, 'searchType');
   if (state.mode === 'search' && state.q) switchRoute({ ...state, searchType: draftSearchType, page: 1 }, { scrollTop: false });
 }));
+const updateBackup = mountLibraryBackup(els.backup, () => {
+  catalogCache.clear();
+  if (state.mode === 'my' && !state.view) loadCatalog({ animate: false });
+});
+for (const collection of EDITORIAL_COLLECTIONS.filter(item => item.enabled)) {
+  const button = node('button', '', collection.shortTitle + (collection.status === 'draft' ? ' · черновик' : ''));
+  button.type = 'button';
+  button.dataset.list = collection.slug;
+  document.querySelector('#editorial-choices').append(button);
+}
+document.querySelector('#editorial-group').hidden = !EDITORIAL_COLLECTIONS.some(item => item.enabled);
 document.querySelectorAll('[data-list]').forEach(button => button.addEventListener('click', () => {
   const list = button.dataset.list;
-  if (!READY_LISTS[list] || (state.mode === 'lists' && list === state.list)) return;
+  if ((!READY_LISTS[list] && !editorialCollection(list)) || (state.mode === 'lists' && list === state.list)) return;
   switchRoute({ ...state, mode: 'lists', list, page: 1 }, { scrollTop: false, scrollCatalog: true });
 }));
 document.querySelectorAll('[data-library]').forEach(button => button.addEventListener('click', () => {
