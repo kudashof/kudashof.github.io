@@ -27,7 +27,7 @@
       "id": "REC-001",
       "title": "Рекомендации на карточке",
       "priority": "now",
-      "status": "in_progress",
+      "status": "released",
       "decision": "approved",
       "brief": "docs/harness/features/recommendations.md",
       "dependsOn": []
