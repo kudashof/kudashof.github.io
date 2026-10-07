@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check fetchscript.js && node --check tmdb.js && node --check state.js && node --check library.js && node --check sw.js && node --check scripts/check-harness.mjs && npm run check:harness",
+    "check": "node --check fetchscript.js && node --check tmdb.js && node --check state.js && node --check library.js && node --check share.js && node --check sw.js && node --check scripts/check-harness.mjs && npm run check:harness",
     "check:harness": "node scripts/check-harness.mjs",
     "test": "node --test tests/*.test.mjs"
   }

@@ -1,6 +1,7 @@
 import { fetchCatalog, fetchDetail, fetchGenres, fetchRecommendations, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007rec2';
 import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007pwa';
 import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007pwa';
+import { buildSharePayload, shareLink } from './share.js?v=20261007share1';
 
 const root = document.documentElement;
 root.dataset.ratingDesign = 'ring';
@@ -34,6 +35,7 @@ const els = {
   sort: document.querySelector('#sort'),
   apply: document.querySelector('#apply-filters'),
   title: document.querySelector('#catalog-title'),
+  catalogShare: document.querySelector('#catalog-share'),
   status: document.querySelector('#catalog-status'),
   grid: document.querySelector('#movie-grid'),
   empty: document.querySelector('#catalog-empty'),
@@ -111,6 +113,56 @@ function setChoiceButtons(selector, chosen, attribute) {
   });
 }
 
+function makeShareControls({ detailTitle = '', catalog = false } = {}) {
+  const controls = node('div', 'share-controls');
+  const row = node('div', 'share-action-row');
+  const button = node('button', 'share-button', 'Поделиться');
+  button.type = 'button';
+  button.setAttribute('aria-label', catalog ? 'Поделиться ссылкой на текущий каталог' : 'Поделиться карточкой');
+  const status = node('p', 'share-status');
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
+  const fallback = node('div', 'share-fallback');
+  fallback.hidden = true;
+  const label = node('label', '', 'Ссылка для копирования');
+  const input = node('input', 'share-url');
+  input.type = 'text';
+  input.readOnly = true;
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.addEventListener('click', () => input.select());
+  input.addEventListener('focus', () => input.select());
+  label.append(input);
+  fallback.append(label);
+  row.append(button, status);
+  controls.append(row);
+  if (catalog && state.mode === 'my') {
+    controls.append(node('p', 'share-note', 'Ссылка откроет раздел «Моё», но сохранённые списки не передаст.'));
+  }
+  controls.append(fallback);
+  button.addEventListener('click', async () => {
+    const payload = buildSharePayload(state, location.href, detailTitle || (catalog ? els.title.textContent : ''));
+    status.textContent = '';
+    fallback.hidden = true;
+    button.disabled = true;
+    try {
+      const outcome = await shareLink(payload);
+      if (!controls.isConnected) return;
+      if (outcome === 'copied') status.textContent = 'Ссылка скопирована.';
+      else if (outcome === 'manual') {
+        status.textContent = 'Скопируй ссылку из поля ниже.';
+        input.value = payload.url;
+        fallback.hidden = false;
+        input.focus();
+        input.select();
+      }
+    } finally {
+      button.disabled = false;
+    }
+  });
+  return controls;
+}
+
 function renderControls() {
   const search = state.mode === 'search';
   const lists = state.mode === 'lists';
@@ -138,6 +190,7 @@ function renderControls() {
   els.myControls.hidden = !mine;
   setChoiceButtons('[data-library]', state.library, 'library');
   els.title.textContent = search ? 'Результаты поиска' : lists ? list.title : mine ? LIBRARY_SECTIONS[state.library].label : 'Идеи для просмотра';
+  els.catalogShare.replaceChildren(makeShareControls({ catalog: true }));
   els.searchInput.value = state.q;
   draftPickType = state.pickType;
   draftSearchType = state.searchType;
@@ -500,6 +553,7 @@ function renderDetail(data) {
   scoreInfo.append(node('span', 'score-votes', formatVotes(data.vote_count)));
   score.append(scoreInfo);
   content.append(score);
+  content.append(makeShareControls({ detailTitle: title }));
   const library = node('section', 'library-actions');
   library.setAttribute('aria-label', 'Моё');
   library.append(node('h2', '', 'Моё'));

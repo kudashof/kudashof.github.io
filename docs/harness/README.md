@@ -26,7 +26,7 @@
 | Инициатива | Статус | Ближайший переход | Что нужно для перехода |
 | --- | --- | --- | --- |
 | [REC-001 Рекомендации](features/recommendations.md) | `released` | — | Выпуск через PR #6; возврат и отсутствие overflow на iPhone подтверждены Алексеем |
-| [SHARE-001 Поделиться](features/share.md) | `ready_for_decision` | `approved` | Утвердить две точки входа и тексты |
+| [SHARE-001 Поделиться](features/share.md) | `in_progress` | `verified` | Локальная реализация готова; проверить системное меню по HTTPS, iPhone и PWA |
 | [LIB-PORT-001 Экспорт/импорт](features/library-portability.md) | `researched` | `ready_for_decision` | Подтвердить спрос и правило конфликтов |
 | [EDIT-001 Редакционные подборки](features/editorial-collections.md) | `idea` | `researched` | Выбрать одну тему и владельца содержания |
 | [PROVIDERS-001 Где смотреть](features/watch-providers.md) | `researched` | `ready_for_decision` | Проверить покрытие по целевым странам и атрибуцию |

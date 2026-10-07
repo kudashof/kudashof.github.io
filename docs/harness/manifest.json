@@ -36,8 +36,8 @@
       "id": "SHARE-001",
       "title": "Поделиться карточкой и подбором",
       "priority": "now",
-      "status": "ready_for_decision",
-      "decision": "required",
+      "status": "in_progress",
+      "decision": "approved",
       "brief": "docs/harness/features/share.md",
       "dependsOn": []
     },

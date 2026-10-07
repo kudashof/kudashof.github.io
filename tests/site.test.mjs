@@ -61,7 +61,8 @@ test('PWA manifest is installable and the application references it', async () =
   const styleUrl = index.match(/href="(main\.css\?[^\"]+)"/)?.[1];
   const moduleUrl = index.match(/src="(fetchscript\.js\?[^\"]+)"/)?.[1];
   const tmdbUrl = entry.match(/from '\.\/(tmdb\.js\?[^']+)'/)?.[1];
-  for (const asset of [styleUrl, moduleUrl, tmdbUrl]) assert.ok(asset && shell.includes(`'./${asset}'`));
+  const shareUrl = entry.match(/from '\.\/(share\.js\?[^']+)'/)?.[1];
+  for (const asset of [styleUrl, moduleUrl, tmdbUrl, shareUrl]) assert.ok(asset && shell.includes(`'./${asset}'`));
 });
 
 test('search request targets title search and keeps media type', () => {

@@ -102,6 +102,18 @@ html[data-route=detail] .list-view{display:none}
 .trailer-box button{background:var(--lime);color:#080808;border:0;border-radius:4px;padding:14px 20px;font-weight:700;cursor:pointer}
 .trailer-box iframe{display:block;width:100%;aspect-ratio:16/9;border:0;margin-top:14px;background:#000}
 .detail-error{border:1px solid var(--border);padding:24px;background:var(--soft)}
+.catalog-share{margin-top:12px}
+.share-controls{min-width:0;max-width:100%}
+.share-action-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
+.share-button{min-height:44px;padding:10px 16px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);font-weight:600;cursor:pointer}
+.share-button:hover{border-color:var(--fg)}
+.share-button:disabled{opacity:.6;cursor:wait}
+.share-status,.share-note{margin:0;color:var(--muted);font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.share-status:empty{display:none}
+.share-note{margin-top:8px}
+.share-fallback{margin-top:12px;max-width:640px;min-width:0}
+.share-fallback label{display:block;font-size:13px;color:var(--muted)}
+.share-url{display:block;width:100%;min-width:0;margin-top:6px;padding:12px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);font-size:16px}
 .detail-recommendations{min-width:0;margin-top:42px;padding-top:30px;border-top:1px solid var(--border)}
 .detail-recommendations>h2{margin:0 0 14px}
 .recommendations-status{margin:0;color:var(--muted);font-size:14px}
