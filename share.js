@@ -1,4 +1,4 @@
-import { parseState, stateUrl } from './state.js?v=20261007package4';
+import { parseState, stateUrl } from './state.js?v=20261007package5';
 
 export function buildSharePayload(state, currentUrl, title = '') {
   const normalized = parseState(stateUrl(state, currentUrl).href);

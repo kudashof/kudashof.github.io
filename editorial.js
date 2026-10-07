@@ -1,13 +1,13 @@
-// Original editorial copy. Draft content requires Alexey's approval before release.
+// Original editorial copy approved by Alexey on 2026-10-07.
 export const EDITORIAL_COLLECTIONS = [{
   slug: 'one-evening',
   title: 'Фильм на один вечер — без обязательного продолжения',
   shortTitle: 'На один вечер',
   promise: 'Восемь самостоятельных историй: не нужно знать предысторию или планировать следующий сезон. Настроения разные — выбери то, которое подходит сегодня.',
   updated: '2026-10-07',
-  owner: 'Редакционный черновик проекта; содержание утверждает Алексей',
-  reviewDue: null,
-  status: 'draft',
+  owner: 'Ответственный за содержание — Алексей',
+  reviewDue: '2026-11-07',
+  status: 'approved',
   enabled: true,
   items: [
     { type: 'movie', id: 194, reason: 'Когда хочется немного тепла и странностей: история о маленьких поступках, которые меняют чужую жизнь. Для вечера без спешки.' },

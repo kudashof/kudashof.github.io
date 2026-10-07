@@ -1,4 +1,4 @@
-import { LIBRARY_STORAGE_KEY, normalizeLibraryItem } from './library.js?v=20261007package4';
+import { LIBRARY_STORAGE_KEY, normalizeLibraryItem } from './library.js?v=20261007package5';
 
 export const BACKUP_FORMAT = 'moviedb-library';
 export const MAX_BACKUP_BYTES = 2 * 1024 * 1024;

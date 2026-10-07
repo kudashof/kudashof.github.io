@@ -1,9 +1,9 @@
-import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007package4';
-import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007package4';
-import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007package4';
-import { buildSharePayload, shareLink } from './share.js?v=20261007package4';
-import { mountLibraryBackup } from './backup-ui.js?v=20261007package4';
-import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007package4';
+import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007package5';
+import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007package5';
+import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007package5';
+import { buildSharePayload, shareLink } from './share.js?v=20261007package5';
+import { mountLibraryBackup } from './backup-ui.js?v=20261007package5';
+import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007package5';
 
 const root = document.documentElement;
 root.dataset.ratingDesign = 'ring';
@@ -201,7 +201,7 @@ function renderControls() {
   els.editorialIntro.replaceChildren();
   if (collection) {
     els.editorialIntro.append(node('p', 'editorial-promise', collection.promise));
-    els.editorialIntro.append(node('p', 'editorial-meta', `${collection.status === 'draft' ? 'Черновик · ждёт утверждения содержания. ' : 'Редакционная подборка. '}${collection.owner}. Обновлено: ${collection.updated}. Метаданные и оценки — TMDB.`));
+    els.editorialIntro.append(node('p', 'editorial-meta', `${collection.status === 'draft' ? 'Черновик · ждёт утверждения содержания. ' : 'Редакционная подборка. '}${collection.owner}. Обновлено: ${collection.updated}.${collection.reviewDue ? ` Следующая проверка: ${collection.reviewDue}.` : ''} Метаданные и оценки — TMDB.`));
   }
   setChoiceButtons('[data-library]', state.library, 'library');
   els.title.textContent = search ? 'Результаты поиска' : lists ? list.title : mine ? LIBRARY_SECTIONS[state.library].label : 'Идеи для просмотра';

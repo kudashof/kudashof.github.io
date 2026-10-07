@@ -1,5 +1,5 @@
-import { readLibrary } from './library.js?v=20261007package4';
-import { createBackup, parseBackup, previewImport, commitImport, MAX_BACKUP_BYTES } from './backup.js?v=20261007package4';
+import { readLibrary } from './library.js?v=20261007package5';
+import { createBackup, parseBackup, previewImport, commitImport, MAX_BACKUP_BYTES } from './backup.js?v=20261007package5';
 
 function element(tag, text = '') {
   const result = document.createElement(tag);
