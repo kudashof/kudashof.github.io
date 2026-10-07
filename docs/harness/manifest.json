@@ -44,18 +44,18 @@
     {
       "id": "LIB-PORT-001",
       "title": "Экспорт и импорт раздела «Моё»",
-      "priority": "later",
-      "status": "researched",
-      "decision": "required",
+      "priority": "now",
+      "status": "in_progress",
+      "decision": "approved",
       "brief": "docs/harness/features/library-portability.md",
       "dependsOn": []
     },
     {
       "id": "EDIT-001",
       "title": "Редакционные подборки",
-      "priority": "research",
-      "status": "idea",
-      "decision": "required",
+      "priority": "now",
+      "status": "in_progress",
+      "decision": "approved",
       "brief": "docs/harness/features/editorial-collections.md",
       "dependsOn": []
     },
@@ -64,7 +64,7 @@
       "title": "Где смотреть",
       "priority": "research",
       "status": "researched",
-      "decision": "required",
+      "decision": "approved",
       "brief": "docs/harness/features/watch-providers.md",
       "dependsOn": []
     }

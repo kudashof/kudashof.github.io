@@ -23,7 +23,7 @@ function text(value, length = 240) {
 }
 
 function image(value) {
-  return typeof value === 'string' && /^https:\/\/image\.tmdb\.org\/t\/p\//.test(value) ? value : '';
+  return typeof value === 'string' && /^https:\/\/image\.tmdb\.org\/t\/p\/(?:w\d+|original)\/[A-Za-z0-9_-]+\.(?:jpg|png|webp)$/.test(value) ? value : '';
 }
 
 function number(value) {

@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
-  <link rel="stylesheet" href="main.css?v=20261007shareicon1">
+  <link rel="stylesheet" href="main.css?v=20261007package3">
   <script>
     try {
       const choice = localStorage.getItem('movie-theme') || 'system';
@@ -25,7 +25,7 @@
     } catch (_) { /* The site remains usable when storage is unavailable. */ }
     if (new URLSearchParams(location.search).has('view')) document.documentElement.dataset.route = 'detail';
   </script>
-  <script type="module" src="fetchscript.js?v=20261007shareicon1"></script>
+  <script type="module" src="fetchscript.js?v=20261007package3"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">К содержанию</a>
@@ -100,6 +100,7 @@
             <div class="list-groups" aria-label="Списки фильмов и сериалов">
               <div class="list-group"><span>Фильмы</span><div class="list-choices"><button type="button" data-list="trending-movie">В тренде</button><button type="button" data-list="popular-movie">Популярные</button><button type="button" data-list="top-rated-movie">Лучшие по оценкам</button><button type="button" data-list="now-playing-movie">Новые релизы</button><button type="button" data-list="upcoming-movie">Ожидаемые</button></div></div>
               <div class="list-group"><span>Сериалы</span><div class="list-choices"><button type="button" data-list="trending-tv">В тренде</button><button type="button" data-list="popular-tv">Популярные</button><button type="button" data-list="top-rated-tv">Лучшие по оценкам</button></div></div>
+              <div class="list-group" id="editorial-group" hidden><span>Редакция</span><div class="list-choices" id="editorial-choices"></div></div>
             </div>
             <p class="list-note">Даты и доступность релизов зависят от региона.</p>
           </div>
@@ -113,9 +114,12 @@
           </div>
         </section>
 
+        <section id="library-backup" aria-label="Перенос и резервная копия Моё" hidden></section>
+
         <section class="catalog" id="catalogue" aria-labelledby="catalog-title">
           <div class="section-heading"><h2 id="catalog-title">Идеи для просмотра</h2><span>Оценки TMDB</span></div>
           <div id="catalog-share" class="catalog-share"></div>
+          <div id="editorial-intro" hidden></div>
           <p id="catalog-status" class="catalog-status" role="status" aria-live="polite"></p>
           <div id="catalog-error" class="catalog-error" hidden><p id="catalog-error-text"></p><button type="button" id="retry-catalog">Повторить запрос</button></div>
           <div id="movie-grid" class="grid" aria-busy="false"></div>

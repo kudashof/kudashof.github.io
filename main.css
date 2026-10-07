@@ -226,6 +226,23 @@ html[data-route=detail] .list-view{display:none}
   .nav-line.my{transform:translateX(300%)}
 }
 
+.backup-panel{border:1px solid var(--border);border-radius:4px;margin:18px 0 0;padding:14px;max-width:100%;min-width:0}
+.backup-panel summary{cursor:pointer;font-weight:700;min-height:30px;padding:5px 0}
+.backup-panel p{font-size:13px;line-height:1.5;max-width:72ch;overflow-wrap:anywhere}
+.backup-actions{display:flex;align-items:flex-start;flex-wrap:wrap;gap:12px;margin:16px 0}
+.backup-panel button{min-height:44px;max-width:100%;white-space:normal;border:1px solid var(--border);background:var(--soft);color:var(--fg);padding:10px 14px;border-radius:4px;margin:4px 8px 4px 0}
+.backup-panel button:disabled{cursor:default;opacity:.55}
+.backup-panel input[type=file]{display:block;width:100%;max-width:340px;margin-top:8px;font-size:13px;min-height:44px}
+.backup-panel label{font-size:13px;line-height:1.5;min-width:0}
+.backup-panel fieldset{border:1px solid var(--border);padding:12px;min-width:0}
+.backup-panel fieldset label,.backup-panel div>label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px;min-height:44px}
+.backup-panel input[type=radio],.backup-panel input[type=checkbox]{flex-shrink:0;width:18px;height:18px;accent-color:var(--fg)}
+.backup-status{min-height:20px}
+.editorial-promise{font-size:16px;line-height:1.6;max-width:75ch}
+.editorial-meta{color:var(--muted);font-size:12px;line-height:1.5}
+.card .editorial-reason{font-size:13px;line-height:1.5;color:var(--fg);margin-top:10px;overflow-wrap:anywhere}
+@media(max-width:760px){.backup-actions{display:block}.backup-panel button{width:100%;margin-right:0}.backup-panel input[type=file]{max-width:100%}.card .editorial-reason{font-size:12px}.editorial-promise{font-size:14px}}
+
 /* Ratings: a compact ring on cards and a fuller explanation on the detail page. */
 .card .card-meta{display:flex;align-items:center;flex-wrap:wrap;gap:5px 8px;min-height:0;margin:7px 0 9px;line-height:1.2}
 .type-badge{display:inline-block;flex:none;padding:4px 6px 3px;border:1px solid var(--border);border-radius:3px;color:var(--fg);font-size:10px;font-weight:700;line-height:1;letter-spacing:.06em;text-transform:uppercase}

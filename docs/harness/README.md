@@ -27,9 +27,9 @@
 | --- | --- | --- | --- |
 | [REC-001 Рекомендации](features/recommendations.md) | `released` | — | Выпуск через PR #6; возврат и отсутствие overflow на iPhone подтверждены Алексеем |
 | [SHARE-001 Поделиться](features/share.md) | `in_progress` | `verified` | Локальная реализация готова; проверить системное меню по HTTPS, iPhone и PWA |
-| [LIB-PORT-001 Экспорт/импорт](features/library-portability.md) | `researched` | `ready_for_decision` | Подтвердить спрос и правило конфликтов |
-| [EDIT-001 Редакционные подборки](features/editorial-collections.md) | `idea` | `researched` | Выбрать одну тему и владельца содержания |
-| [PROVIDERS-001 Где смотреть](features/watch-providers.md) | `researched` | `ready_for_decision` | Проверить покрытие по целевым странам и атрибуцию |
+| [LIB-PORT-001 Экспорт/импорт](features/library-portability.md) | `in_progress` | `verified` | Единая ручная приёмка файла на Safari/iPhone/PWA |
+| [EDIT-001 Редакционные подборки](features/editorial-collections.md) | `in_progress` | `verified` | Утвердить содержание пилота, редактора и срок проверки; общая приёмка |
+| [PROVIDERS-001 Где смотреть](features/watch-providers.md) | `researched` | — | Россия утверждена условно; покрытие недостаточно, UI исключён из текущего пакета |
 
 ## Жизненный цикл инициативы
 
@@ -59,7 +59,7 @@ idea → researched → ready_for_decision → approved → in_progress
 3. Запустить `npm run check:harness`.
 4. Довести спецификацию до `ready_for_decision`: заполнить пользу, scope, состояния, риски, проверки и требуемое решение.
 5. После явного решения Алексея записать его в спецификацию и изменить статус на `approved`.
-6. Реализовывать одну ограниченную инициативу в отдельной ветке и PR.
+6. По умолчанию реализовывать одну ограниченную инициативу в отдельной ветке и PR. Для [пакета 2026-10-07](FEATURE-PACKAGE.md) Алексей отдельно утвердил один PR на оставшиеся функции и один общий ручной проход; непройденное условие провайдеров не заменяется фиктивной готовностью.
 7. Пройти [`RELEASE-GATES.md`](RELEASE-GATES.md), приложив факты по каждому уровню: код, тесты, ручная проверка, remote/PR, GitHub Pages, публичный сайт.
 8. После проверки публичного адреса изменить статус на `released` и записать доказательство в спецификацию.
 

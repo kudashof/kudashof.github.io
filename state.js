@@ -1,3 +1,5 @@
+import { editorialCollection } from './editorial.js?v=20261007package3';
+
 export const DEFAULT_STATE = Object.freeze({
   mode: 'pick', q: '', searchType: 'all', pickType: 'movie',
   genres: [], period: '', rating: '', sort: 'popular', list: 'trending-movie', library: 'later', page: 1,
@@ -33,9 +35,9 @@ export function parseState(input) {
     period: PERIODS.has(params.get('period')) ? params.get('period') : '',
     rating: RATINGS.has(params.get('rating')) ? params.get('rating') : '',
     sort: SORTS.has(params.get('sort')) ? params.get('sort') : 'popular',
-    list: LISTS.has(params.get('list')) ? params.get('list') : 'trending-movie',
+    list: LISTS.has(params.get('list')) || editorialCollection(params.get('list')) ? params.get('list') : 'trending-movie',
     library: LIBRARY_SECTIONS.has(params.get('my')) ? params.get('my') : 'later',
-    page: Number.isInteger(page) && page > 0 ? Math.min(page, 500) : 1,
+    page: mode === 'lists' && editorialCollection(params.get('list')) ? 1 : Number.isInteger(page) && page > 0 ? Math.min(page, 500) : 1,
     view: validDetail ? view : '',
     id: validDetail ? id : 0,
   };
