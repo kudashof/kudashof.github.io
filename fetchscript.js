@@ -1,4 +1,4 @@
-import { fetchCatalog, fetchDetail, fetchGenres, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007pwa';
+import { fetchCatalog, fetchDetail, fetchGenres, fetchRecommendations, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007rec2';
 import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007pwa';
 import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007pwa';
 
@@ -62,8 +62,10 @@ let draftSearchType = state.searchType;
 let draftGenres = [...state.genres];
 let activeCatalog = null;
 let activeDetail = null;
+let activeRecommendations = null;
 let catalogSequence = 0;
 let detailSequence = 0;
+let recommendationsSequence = 0;
 let returnFocus = null;
 const catalogCache = new Map();
 const genreData = { movie: null, tv: null };
@@ -268,21 +270,21 @@ function scoreBadge(value, votes, { onPoster = false } = {}) {
   return badge;
 }
 
-function makeCard(item, index) {
+function makeCard(item, index, { numbered = true, recommendation = false } = {}) {
   const href = stateUrl({ ...listState(state), view: item.type, id: item.id }, location.href);
-  const card = node('a', 'card');
+  const card = node('a', recommendation ? 'card recommendation-card' : 'card');
   card.href = href.pathname + href.search;
   card.dataset.type = item.type;
   card.dataset.id = String(item.id);
   card.style.setProperty('--i', String(Math.min(index, 8)));
-  card.append(node('span', 'number', String(index + 1 + (state.page - 1) * 20).padStart(2, '0')));
+  if (numbered) card.append(node('span', 'number', String(index + 1 + (state.page - 1) * 20).padStart(2, '0')));
   const poster = node('div', 'poster');
   const image = node('img', item.poster ? '' : 'is-placeholder');
   image.src = item.poster || 'img/noposter.jpg';
   image.alt = '';
   image.width = 342;
   image.height = 513;
-  image.loading = index < 6 ? 'eager' : 'lazy';
+  image.loading = recommendation ? 'lazy' : index < 6 ? 'eager' : 'lazy';
   image.decoding = 'async';
   if (item.posterLarge) image.srcset = item.poster + ' 342w, ' + item.posterLarge + ' 500w';
   image.sizes = '(max-width: 335px) 100vw, (max-width: 760px) 50vw, (max-width: 900px) 25vw, 17vw';
@@ -382,8 +384,10 @@ async function loadCatalog({ animate = true, force = false } = {}) {
 function switchRoute(next, { replace = false, scrollTop = true, scrollCatalog = false } = {}) {
   activeCatalog?.abort();
   activeDetail?.abort();
+  activeRecommendations?.abort();
   catalogSequence++;
   detailSequence++;
+  recommendationsSequence++;
   state = listState(next);
   const url = stateUrl(state, location.href);
   history[replace ? 'replaceState' : 'pushState']({}, '', url.pathname + url.search);
@@ -399,6 +403,59 @@ function switchRoute(next, { replace = false, scrollTop = true, scrollCatalog = 
 function detailLine(label, value) {
   const text = node('span', '', label + ': ' + value);
   return text;
+}
+
+function recommendationsTitle() {
+  return node('h2', '', 'Что посмотреть дальше');
+}
+
+function renderRecommendationsLoading(section) {
+  section.hidden = false;
+  section.setAttribute('aria-busy', 'true');
+  const status = node('p', 'recommendations-status', 'Подбираем похожие варианты…');
+  status.setAttribute('role', 'status');
+  section.replaceChildren(recommendationsTitle(), status);
+}
+
+function renderRecommendations(section, items) {
+  section.hidden = false;
+  section.setAttribute('aria-busy', 'false');
+  const grid = node('div', 'grid recommendations-grid');
+  grid.replaceChildren(...items.map((item, index) => makeCard(item, index, { numbered: false, recommendation: true })));
+  section.replaceChildren(recommendationsTitle(), grid);
+}
+
+function renderRecommendationsError(section, data, detailRequestSequence) {
+  section.hidden = false;
+  section.setAttribute('aria-busy', 'false');
+  const box = node('div', 'recommendations-error');
+  box.setAttribute('role', 'alert');
+  box.append(node('p', '', 'Не удалось загрузить варианты. Основные сведения сохранены.'));
+  const retry = node('button', '', 'Повторить');
+  retry.type = 'button';
+  retry.addEventListener('click', () => loadRecommendations(data, section, detailRequestSequence));
+  box.append(retry);
+  section.replaceChildren(recommendationsTitle(), box);
+}
+
+async function loadRecommendations(data, section, detailRequestSequence) {
+  activeRecommendations?.abort();
+  activeRecommendations = new AbortController();
+  const sequence = ++recommendationsSequence;
+  renderRecommendationsLoading(section);
+  try {
+    const items = (await fetchRecommendations(data.type, data.id, { signal: activeRecommendations.signal })).slice(0, 6);
+    if (detailRequestSequence !== detailSequence || sequence !== recommendationsSequence || !section.isConnected) return;
+    if (!items.length) {
+      section.hidden = true;
+      section.setAttribute('aria-busy', 'false');
+      return;
+    }
+    renderRecommendations(section, items);
+  } catch (error) {
+    if (detailRequestSequence !== detailSequence || sequence !== recommendationsSequence || error?.name === 'AbortError' || !section.isConnected) return;
+    renderRecommendationsError(section, data, detailRequestSequence);
+  }
 }
 
 function renderDetail(data) {
@@ -507,14 +564,20 @@ function renderDetail(data) {
   }
   content.append(trailerBox);
   layout.append(content);
-  els.detailContent.append(layout);
+  const recommendations = node('section', 'detail-recommendations');
+  recommendations.setAttribute('aria-label', 'Что посмотреть дальше');
+  recommendations.hidden = true;
+  els.detailContent.append(layout, recommendations);
   heading.focus({ preventScroll: true });
+  return recommendations;
 }
 
 async function showDetail() {
   activeCatalog?.abort();
   catalogSequence++;
   activeDetail?.abort();
+  activeRecommendations?.abort();
+  recommendationsSequence++;
   activeDetail = new AbortController();
   const sequence = ++detailSequence;
   root.dataset.route = 'detail';
@@ -527,7 +590,8 @@ async function showDetail() {
   try {
     const data = await fetchDetail(state.view, state.id, { signal: activeDetail.signal });
     if (sequence !== detailSequence) return;
-    renderDetail(data);
+    const recommendations = renderDetail(data);
+    loadRecommendations(data, recommendations, sequence);
   } catch (error) {
     if (sequence !== detailSequence || error?.name === 'AbortError') return;
     const box = node('div', 'detail-error');
@@ -546,7 +610,9 @@ function restoreList(scrollPosition = 0) {
   activeCatalog?.abort();
   catalogSequence++;
   activeDetail?.abort();
+  activeRecommendations?.abort();
   detailSequence++;
+  recommendationsSequence++;
   state = listState(parseState(location.href));
   root.dataset.route = 'list';
   els.list.hidden = false;
@@ -668,6 +734,15 @@ els.grid.addEventListener('click', event => {
   event.preventDefault();
   returnFocus = { type: card.dataset.type, id: card.dataset.id };
   history.replaceState({ scrollY: window.scrollY }, '', location.href);
+  history.pushState({ fromList: true }, '', card.href);
+  state = parseState(location.href);
+  showDetail();
+  window.scrollTo(0, 0);
+});
+els.detailContent.addEventListener('click', event => {
+  const card = event.target.closest('a.recommendation-card');
+  if (!card || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
   history.pushState({ fromList: true }, '', card.href);
   state = parseState(location.href);
   showDetail();

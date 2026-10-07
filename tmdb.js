@@ -99,6 +99,17 @@ export function buildListRequest(state) {
   };
 }
 
+export function buildRecommendationsRequest(type, id) {
+  if (!['movie', 'tv'].includes(type) || !Number.isInteger(id) || id <= 0) {
+    throw new Error('Invalid recommendation address');
+  }
+  return {
+    path: `/${type}/${id}/recommendations`,
+    params: { language: 'ru-RU' },
+    fallbackType: type,
+  };
+}
+
 export function buildApiUrl(path, params = {}) {
   const url = new URL(`${API_ROOT}${path}`);
   url.searchParams.set('api_key', TMDB_API_KEY);
@@ -143,6 +154,14 @@ export async function fetchCatalog(state, options = {}) {
 export async function fetchGenres(type, options = {}) {
   const data = await apiGet(`/genre/${type}/list`, { language: 'ru-RU' }, options);
   return Array.isArray(data.genres) ? data.genres.filter(g => Number.isInteger(g.id) && typeof g.name === 'string') : [];
+}
+
+export async function fetchRecommendations(type, id, options = {}) {
+  const request = buildRecommendationsRequest(type, id);
+  const data = await apiGet(request.path, request.params, options);
+  return Array.isArray(data.results)
+    ? data.results.map(item => normalizeMedia(item, request.fallbackType)).filter(item => item && item.id !== id)
+    : [];
 }
 
 export function pickTrailer(videos) {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { apiGet, buildDiscoverRequest, buildListRequest, buildSearchRequest, imageUrl, normalizeMedia, periodBounds, pickTrailer } from '../tmdb.js';
+import { apiGet, buildDiscoverRequest, buildListRequest, buildRecommendationsRequest, buildSearchRequest, fetchRecommendations, imageUrl, normalizeMedia, periodBounds, pickTrailer } from '../tmdb.js';
 import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from '../state.js';
 import { LIBRARY_STORAGE_KEY, libraryItems, libraryState, readLibrary, toggleLibraryState } from '../library.js';
 
@@ -51,11 +51,17 @@ test('local library keeps independent states and removes an item only when all s
 test('PWA manifest is installable and the application references it', async () => {
   const manifest = JSON.parse(await readFile(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));
   const index = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const shell = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
+  const entry = await readFile(new URL('../fetchscript.js', import.meta.url), 'utf8');
   assert.equal(manifest.start_url, './');
   assert.equal(manifest.display, 'standalone');
   assert.deepEqual(manifest.icons.map(icon => icon.sizes), ['192x192', '512x512']);
   assert.match(index, /rel="manifest" href="manifest\.webmanifest"/);
   assert.match(index, /apple-touch-icon/);
+  const styleUrl = index.match(/href="(main\.css\?[^\"]+)"/)?.[1];
+  const moduleUrl = index.match(/src="(fetchscript\.js\?[^\"]+)"/)?.[1];
+  const tmdbUrl = entry.match(/from '\.\/(tmdb\.js\?[^']+)'/)?.[1];
+  for (const asset of [styleUrl, moduleUrl, tmdbUrl]) assert.ok(asset && shell.includes(`'./${asset}'`));
 });
 
 test('search request targets title search and keeps media type', () => {
@@ -71,6 +77,41 @@ test('ready lists have stable URLs and use the correct TMDB endpoints', () => {
   assert.equal(buildListRequest(state).path, '/tv/top_rated');
   assert.equal(buildListRequest(state).fallbackType, 'tv');
   assert.equal(buildListRequest({ ...state, list: 'now-playing-movie' }).path, '/movie/now_playing');
+});
+
+test('recommendations use the matching movie or TV endpoint and keep only valid cards', async () => {
+  assert.equal(buildRecommendationsRequest('movie', 194).path, '/movie/194/recommendations');
+  assert.equal(buildRecommendationsRequest('tv', 1396).path, '/tv/1396/recommendations');
+  assert.throws(() => buildRecommendationsRequest('person', 1), /Invalid recommendation address/);
+  let requestUrl = null;
+  const items = await fetchRecommendations('tv', 1396, {
+    fetchImpl: async url => {
+      requestUrl = new URL(url);
+      return {
+        ok: true,
+        json: async () => ({ results: [
+          { id: 1396, name: 'Во все тяжкие' },
+          { id: 42, name: 'Лучше звоните Солу', first_air_date: '2015-02-08', poster_path: '/saul.jpg', vote_average: 8.7, vote_count: 500 },
+          { id: 43, name: '' },
+        ] }),
+      };
+    },
+  });
+  assert.equal(requestUrl.pathname, '/3/tv/1396/recommendations');
+  assert.equal(requestUrl.searchParams.get('language'), 'ru-RU');
+  assert.deepEqual(items.map(item => [item.id, item.type, item.title]), [[42, 'tv', 'Лучше звоните Солу']]);
+});
+
+test('recommendation request can be cancelled when another detail page opens', async () => {
+  const controller = new AbortController();
+  const pending = fetchRecommendations('movie', 194, {
+    signal: controller.signal,
+    fetchImpl: async (_url, { signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { once: true });
+    }),
+  });
+  controller.abort();
+  await assert.rejects(pending, { name: 'AbortError' });
 });
 
 test('movie and TV discover requests use their distinct date fields and require every selected genre', () => {

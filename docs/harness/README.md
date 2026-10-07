@@ -25,7 +25,7 @@
 
 | Инициатива | Статус | Ближайший переход | Что нужно для перехода |
 | --- | --- | --- | --- |
-| [REC-001 Рекомендации](features/recommendations.md) | `ready_for_decision` | `approved` | Утвердить место, лимит и поведение empty/error |
+| [REC-001 Рекомендации](features/recommendations.md) | `in_progress` | `verified` | Реализовать утверждённый scope и пройти release gates |
 | [SHARE-001 Поделиться](features/share.md) | `ready_for_decision` | `approved` | Утвердить две точки входа и тексты |
 | [LIB-PORT-001 Экспорт/импорт](features/library-portability.md) | `researched` | `ready_for_decision` | Подтвердить спрос и правило конфликтов |
 | [EDIT-001 Редакционные подборки](features/editorial-collections.md) | `idea` | `researched` | Выбрать одну тему и владельца содержания |
