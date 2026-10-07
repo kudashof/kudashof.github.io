@@ -114,6 +114,18 @@ test('existing legacy storage array can be imported into; corrupted current data
   }
 });
 
+test('unavailable browser storage getter produces a friendly message before any write', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('SecurityError'); } });
+  try {
+    assert.throws(() => previewImport(parseBackup(backup([record()]))), /Хранилище браузера недоступно/);
+    assert.throws(() => commitImport({}), /Хранилище браузера недоступно/);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor);
+    else delete globalThis.localStorage;
+  }
+});
+
 test('editorial pilot is validated, original and has exactly eight standalone movie entries', () => {
   assert.equal(validateCollections(EDITORIAL_COLLECTIONS), EDITORIAL_COLLECTIONS);
   const pilot = editorialCollection('one-evening');

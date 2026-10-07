@@ -1,4 +1,4 @@
-import { LIBRARY_STORAGE_KEY, normalizeLibraryItem } from './library.js?v=20261007package3';
+import { LIBRARY_STORAGE_KEY, normalizeLibraryItem } from './library.js?v=20261007package4';
 
 export const BACKUP_FORMAT = 'moviedb-library';
 export const MAX_BACKUP_BYTES = 2 * 1024 * 1024;
@@ -8,6 +8,14 @@ const key = item => `${item.type}:${item.id}`;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 function fail(message) { throw new Error(message); }
+
+function storageTarget(storage) {
+  try {
+    const target = storage || globalThis.localStorage;
+    if (typeof target?.getItem !== 'function' || typeof target?.setItem !== 'function') throw new Error('unavailable');
+    return target;
+  } catch (_) { fail('Хранилище браузера недоступно. Списки не изменены.'); }
+}
 
 function boundedShape(value, depth = 0, budget = { nodes: 0 }) {
   if (++budget.nodes > 15000 || (value && typeof value === 'object' && depth > 3)) fail('Слишком сложная структура файла.');
@@ -77,8 +85,9 @@ function currentLibrary(storage) {
   return { raw, items: dedupe(normalized) };
 }
 
-export function previewImport(backup, mode = 'merge', storage = globalThis.localStorage) {
+export function previewImport(backup, mode = 'merge', storage) {
   if (!['merge', 'replace'].includes(mode)) fail('Выбери объединение или замену.');
+  storage = storageTarget(storage);
   const before = currentLibrary(storage);
   const currentKeys = new Set(before.items.map(key));
   const conflicts = backup.items.filter(item => currentKeys.has(key(item))).length;
@@ -87,7 +96,8 @@ export function previewImport(backup, mode = 'merge', storage = globalThis.local
   return { mode, items, before: before.items, rawBefore: before.raw, imported: backup.items.length, conflicts };
 }
 
-export function commitImport(plan, storage = globalThis.localStorage) {
+export function commitImport(plan, storage) {
+  storage = storageTarget(storage);
   const before = currentLibrary(storage);
   if (before.raw !== plan.rawBefore) fail('Список изменился после предпросмотра. Выбери файл ещё раз.');
   if (!plan.imported) return false;

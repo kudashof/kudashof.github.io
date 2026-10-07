@@ -1,9 +1,9 @@
-import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007package3';
-import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007package3';
-import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007package3';
-import { buildSharePayload, shareLink } from './share.js?v=20261007package3';
-import { mountLibraryBackup } from './backup-ui.js?v=20261007package3';
-import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007package3';
+import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007package4';
+import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007package4';
+import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007package4';
+import { buildSharePayload, shareLink } from './share.js?v=20261007package4';
+import { mountLibraryBackup } from './backup-ui.js?v=20261007package4';
+import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007package4';
 
 const root = document.documentElement;
 root.dataset.ratingDesign = 'ring';
