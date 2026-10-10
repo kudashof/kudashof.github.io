@@ -247,7 +247,7 @@ html[data-route=detail] .list-view{display:none}
 .card .card-meta{display:flex;align-items:center;flex-wrap:wrap;gap:5px 8px;min-height:0;margin:7px 0 9px;line-height:1.2}
 .type-badge{display:inline-block;flex:none;padding:4px 6px 3px;border:1px solid var(--border);border-radius:3px;color:var(--fg);font-size:10px;font-weight:700;line-height:1;letter-spacing:.06em;text-transform:uppercase}
 .card-year{font-size:12px;color:var(--muted)}
-.card-genres{flex-basis:100%;min-width:0;color:var(--muted);font-size:12px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.card-genres{flex-basis:100%;min-width:0;min-height:2.5em;line-height:1.25;color:var(--muted);font-size:12px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .score-badge{--score-color:var(--lime);--score-text:#101010;display:inline-flex;align-items:baseline;justify-content:center;gap:2px;flex:none;min-width:61px;min-height:32px;padding:8px 9px 7px;border-radius:5px;background:var(--score-color);color:var(--score-text);box-shadow:inset 0 0 0 1px #0001;font-variant-numeric:tabular-nums}
 .score-badge.score-muted{--score-color:#717171;--score-text:var(--fg);box-shadow:inset 0 0 0 1px var(--border)}
 .score-badge.score-5{--score-color:#b83255;--score-text:#f8f8f5}

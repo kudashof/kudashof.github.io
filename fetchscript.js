@@ -1,9 +1,8 @@
-import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, formatRating, imageUrl, READY_LISTS } from './tmdb.js?v=20261007package5';
-import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007package5';
-import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007package5';
-import { buildSharePayload, shareLink } from './share.js?v=20261007package5';
-import { mountLibraryBackup } from './backup-ui.js?v=20261007package5';
-import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007package5';
+import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, fetchTrailer, formatRating, imageUrl, posterSrcset, READY_LISTS } from './tmdb.js?v=20261007perf2';
+import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007perf2';
+import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007perf2';
+import { buildSharePayload, shareLink } from './share.js?v=20261007perf2';
+import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007perf2';
 
 const root = document.documentElement;
 root.dataset.ratingDesign = 'ring';
@@ -74,6 +73,8 @@ let detailSequence = 0;
 let recommendationsSequence = 0;
 let returnFocus = null;
 const catalogCache = new Map();
+let backupModule = null;
+let backupUpdater = null;
 const genreData = { movie: null, tv: null };
 const genreOptionsData = { movie: null, tv: null };
 const genrePromises = { movie: null, tv: null };
@@ -286,6 +287,12 @@ function ensureGenres(type) {
       genreData[type] = genres;
       genreOptionsData[type] = genreOptions(genres);
       if (draftPickType === type) populateGenres();
+      // Refresh the visible catalog, even if its original request is no longer active.
+      const visible = !state.view && catalogCache.get(catalogKey(state));
+      if (visible) {
+        if (state.mode === 'pick' && state.pickType === type) orderGenresByPopularity(type, visible.items);
+        updateCardGenres(visible.items);
+      }
       return genres;
     }).catch(() => {
       genreData[type] = [];
@@ -307,6 +314,15 @@ function genreNames(item) {
   if (Array.isArray(item.genreLabels) && item.genreLabels.length) return item.genreLabels.slice(0, 2).join(', ');
   const list = genreData[item.type] || [];
   return (item.genres || []).map(id => list.find(genre => genre.id === id)?.name).filter(Boolean).slice(0, 2).join(', ');
+}
+
+function updateCardGenres(items) {
+  const byId = new Map(items.map(item => [`${item.type}:${item.id}`, item]));
+  for (const card of els.grid.children) {
+    const item = byId.get(`${card.dataset.type}:${card.dataset.id}`);
+    const label = card.querySelector('.card-genres');
+    if (item && label) label.textContent = genreNames(item);
+  }
 }
 
 function formatVotes(votes) {
@@ -352,10 +368,12 @@ function makeCard(item, index, { numbered = true, recommendation = false } = {})
   image.alt = '';
   image.width = 342;
   image.height = 513;
-  image.loading = recommendation ? 'lazy' : index < 6 ? 'eager' : 'lazy';
+  const firstRow = matchMedia('(max-width:335px)').matches ? 1 : matchMedia('(max-width:760px)').matches ? 2 : matchMedia('(max-width:900px)').matches ? 4 : 6;
+  image.loading = !recommendation && index < firstRow ? 'eager' : 'lazy';
+  image.fetchPriority = !recommendation && index < firstRow ? 'high' : 'low';
   image.decoding = 'async';
-  if (item.posterLarge) image.srcset = item.poster + ' 342w, ' + item.posterLarge + ' 500w';
-  image.sizes = '(max-width: 335px) 100vw, (max-width: 760px) 50vw, (max-width: 900px) 25vw, 17vw';
+  image.srcset = posterSrcset(item.poster);
+  image.sizes = '(max-width:335px) calc(100vw - 36px), (max-width:760px) calc(50vw - 25px), (max-width:900px) calc(25vw - 27.5px), (max-width:1480px) calc(16.667vw - 24.333px), 223px';
   image.addEventListener('error', () => {
     image.onerror = null;
     image.removeAttribute('srcset');
@@ -371,7 +389,7 @@ function makeCard(item, index, { numbered = true, recommendation = false } = {})
   meta.append(node('span', 'type-badge', mediaType));
   meta.append(node('span', 'card-year', item.year || 'Год неизвестен'));
   const genres = genreNames(item);
-  if (genres) meta.append(node('span', 'card-genres', genres));
+  meta.append(node('span', 'card-genres', genres));
   card.append(meta);
   if (item.reason) {
     const reason = node('p', 'editorial-reason', item.reason);
@@ -438,12 +456,10 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   els.status.textContent = els.grid.children.length ? `${updateLabel}; пока показаны прежние результаты…` : 'Загружаем результаты…';
   try {
     const collection = state.mode === 'lists' && editorialCollection(state.list);
-    const genresNeeded = state.mode === 'search'
-      ? Promise.all([ensureGenres('movie'), ensureGenres('tv')])
-      : state.mode === 'lists'
-        ? ensureGenres((READY_LISTS[state.list] || READY_LISTS['trending-movie']).type)
-        : ensureGenres(state.pickType);
-    const [result] = await Promise.all([collection ? fetchEditorial(collection, { getMedia: fetchMedia, signal: activeCatalog.signal }) : fetchCatalog(state, { signal: activeCatalog.signal }), genresNeeded]);
+    const genreTypes = state.mode === 'search' ? ['movie', 'tv']
+      : [state.mode === 'lists' ? (READY_LISTS[state.list] || READY_LISTS['trending-movie']).type : state.pickType];
+    genreTypes.forEach(ensureGenres);
+    const result = await (collection ? fetchEditorial(collection, { getMedia: fetchMedia, signal: activeCatalog.signal }) : fetchCatalog(state, { signal: activeCatalog.signal }));
     if (sequence !== catalogSequence) return;
     if (state.mode === 'pick') orderGenresByPopularity(state.pickType, result.items);
     catalogCache.set(key, result);
@@ -543,10 +559,14 @@ function renderDetail(data) {
   const layout = node('div', 'detail-layout');
   const poster = node('img', 'detail-poster' + (data.poster_path ? '' : ' is-placeholder'));
   poster.src = imageUrl(data.poster_path, 'w500') || 'img/noposter.jpg';
+  poster.srcset = posterSrcset(poster.src);
+  poster.sizes = '(max-width:335px) calc(58vw - 20.88px), (max-width:760px) min(190px, calc(48vw - 17.28px)), (max-width:900px) 190px, 300px';
+  poster.fetchPriority = 'high';
+  poster.decoding = 'async';
   poster.alt = '';
   poster.width = 500;
   poster.height = 750;
-  poster.addEventListener('error', () => { poster.src = 'img/noposter.jpg'; poster.classList.add('is-placeholder'); }, { once: true });
+  poster.addEventListener('error', () => { poster.removeAttribute('srcset'); poster.src = 'img/noposter.jpg'; poster.classList.add('is-placeholder'); }, { once: true });
   layout.append(poster);
   const content = node('div');
   const date = data.type === 'movie' ? data.release_date : data.first_air_date;
@@ -624,6 +644,19 @@ function renderDetail(data) {
   content.append(node('h2', '', data.type === 'tv' ? 'О сериале' : 'О фильме'));
   content.append(node('p', 'detail-overview', data.overview || 'Описание пока недоступно.'));
   const trailerBox = node('div', 'trailer-box');
+  trailerBox.setAttribute('aria-live', 'polite');
+  content.append(trailerBox);
+  layout.append(content);
+  const recommendations = node('section', 'detail-recommendations');
+  recommendations.setAttribute('aria-label', 'Что посмотреть дальше');
+  recommendations.hidden = true;
+  els.detailContent.append(layout, recommendations);
+  heading.focus({ preventScroll: true });
+  return { recommendations, trailerBox };
+}
+
+function renderTrailer(data, trailerBox) {
+  trailerBox.replaceChildren();
   trailerBox.append(node('h2', '', 'Трейлер'));
   if (data.trailer) {
     const play = node('button', '', 'Смотреть трейлер');
@@ -641,14 +674,22 @@ function renderDetail(data) {
   } else {
     trailerBox.append(node('p', '', 'Трейлер пока недоступен.'));
   }
-  content.append(trailerBox);
-  layout.append(content);
-  const recommendations = node('section', 'detail-recommendations');
-  recommendations.setAttribute('aria-label', 'Что посмотреть дальше');
-  recommendations.hidden = true;
-  els.detailContent.append(layout, recommendations);
-  heading.focus({ preventScroll: true });
-  return recommendations;
+}
+
+async function loadTrailer(data, trailerBox, sequence, signal) {
+  if (data.trailer) { renderTrailer(data, trailerBox); return; }
+  trailerBox.replaceChildren(node('h2', '', 'Трейлер'), node('p', '', 'Загружаем трейлер…'));
+  try {
+    const trailer = await fetchTrailer(data.type, data.id, { signal });
+    if (sequence !== detailSequence || !trailerBox.isConnected) return;
+    renderTrailer({ ...data, trailer }, trailerBox);
+  } catch (error) {
+    if (sequence !== detailSequence || signal.aborted || !trailerBox.isConnected) return;
+    const retry = node('button', '', 'Повторить');
+    retry.type = 'button';
+    retry.addEventListener('click', () => loadTrailer(data, trailerBox, sequence, signal));
+    trailerBox.replaceChildren(node('h2', '', 'Трейлер'), node('p', '', 'Не удалось загрузить трейлер.'), retry);
+  }
 }
 
 async function showDetail() {
@@ -669,8 +710,9 @@ async function showDetail() {
   try {
     const data = await fetchDetail(state.view, state.id, { signal: activeDetail.signal });
     if (sequence !== detailSequence) return;
-    const recommendations = renderDetail(data);
+    const { recommendations, trailerBox } = renderDetail(data);
     loadRecommendations(data, recommendations, sequence);
+    loadTrailer(data, trailerBox, sequence, activeDetail.signal);
   } catch (error) {
     if (sequence !== detailSequence || error?.name === 'AbortError') return;
     const box = node('div', 'detail-error');
@@ -766,10 +808,29 @@ document.querySelectorAll('[data-search-type]').forEach(button => button.addEven
   setChoiceButtons('[data-search-type]', draftSearchType, 'searchType');
   if (state.mode === 'search' && state.q) switchRoute({ ...state, searchType: draftSearchType, page: 1 }, { scrollTop: false });
 }));
-const updateBackup = mountLibraryBackup(els.backup, () => {
-  catalogCache.clear();
-  if (state.mode === 'my' && !state.view) loadCatalog({ animate: false });
-});
+async function updateBackup() {
+  if (backupUpdater) { backupUpdater(); return; }
+  els.backup.replaceChildren(node('p', 'library-status', 'Загружаем перенос и резервную копию…'));
+  try {
+    const { mountLibraryBackup } = await (backupModule ||= import('./backup-ui.js?v=20261007perf2'));
+    if (!backupUpdater) {
+      els.backup.replaceChildren();
+      backupUpdater = mountLibraryBackup(els.backup, () => {
+        catalogCache.clear();
+        if (state.mode === 'my' && !state.view) loadCatalog({ animate: false });
+      });
+    }
+    backupUpdater();
+  } catch (_) {
+    backupModule = null;
+    const retry = node('button', 'show', 'Повторить');
+    retry.type = 'button';
+    // Browsers may retain a failed module graph; reload retries all dependencies.
+    retry.addEventListener('click', () => location.reload());
+    els.backup.replaceChildren(node('p', 'library-status', 'Не удалось загрузить перенос и резервную копию.'), retry);
+  }
+}
+
 for (const collection of EDITORIAL_COLLECTIONS.filter(item => item.enabled)) {
   const button = node('button', '', collection.shortTitle + (collection.status === 'draft' ? ' · черновик' : ''));
   button.type = 'button';

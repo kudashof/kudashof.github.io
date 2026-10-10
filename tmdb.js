@@ -20,6 +20,12 @@ export function imageUrl(path, size = 'w342') {
   return `${IMAGE_ROOT}/${size}${path}`;
 }
 
+export function posterSrcset(url) {
+  const match = /^https:\/\/image\.tmdb\.org\/t\/p\/(?:w\d+|original)(\/[A-Za-z0-9._-]+)$/.exec(url || '');
+  if (!match || !imageUrl(match[1])) return '';
+  return ['w185', 'w342', 'w500'].map(size => `${imageUrl(match[1], size)} ${size.slice(1)}w`).join(', ');
+}
+
 export function normalizeMedia(item, fallbackType) {
   const type = item?.media_type || fallbackType;
   if ((type !== 'movie' && type !== 'tv') || !Number.isInteger(item?.id) || item.id <= 0) return null;
@@ -181,14 +187,14 @@ export function pickTrailer(videos) {
 export async function fetchDetail(type, id, options = {}) {
   if (!['movie', 'tv'].includes(type) || !Number.isInteger(id) || id <= 0) throw new Error('Invalid detail address');
   const data = await apiGet(`/${type}/${id}`, { language: 'ru-RU', append_to_response: 'videos' }, options);
-  let trailer = pickTrailer(data.videos?.results);
-  if (!trailer) {
-    try {
-      const english = await apiGet(`/${type}/${id}/videos`, { language: 'en-US' }, options);
-      trailer = pickTrailer(english.results);
-    } catch (_) { /* Details remain usable without a trailer. */ }
-  }
-  return { ...data, type, trailer };
+  return { ...data, type, trailer: pickTrailer(data.videos?.results) };
+}
+
+// Optional fallback is independent of the detail request and its first render.
+export async function fetchTrailer(type, id, options = {}) {
+  if (!['movie', 'tv'].includes(type) || !Number.isInteger(id) || id <= 0) throw new Error('Invalid trailer address');
+  const data = await apiGet(`/${type}/${id}/videos`, { language: 'en-US' }, options);
+  return pickTrailer(data.results);
 }
 
 export function formatRating(value, votes) {
