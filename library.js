@@ -7,7 +7,8 @@ export const LIBRARY_SECTIONS = Object.freeze({
 });
 
 const SECTION_KEYS = new Set(Object.keys(LIBRARY_SECTIONS));
-const MAX_ITEMS = 500;
+export const MAX_LIBRARY_ITEMS = 500;
+export const LIBRARY_RECOVERY_MESSAGE = 'Списки не изменены. Открой «Моё» → «Резервная копия» → «Восстановить из файла» и выбери замену из сохранённой копии. Если хранилище недоступно, сначала разреши хранение данных сайта в браузере.';
 
 function usableStorage(storage) {
   if (storage) return storage;
@@ -63,16 +64,25 @@ export function normalizeLibraryItem(item) {
   };
 }
 
-function readItems(storage) {
+export function inspectLibrary(storage) {
   const target = usableStorage(storage);
-  if (!target) return [];
+  if (!target) return { status: 'unavailable', items: [], raw: null };
+  let raw;
+  try { raw = target.getItem(LIBRARY_STORAGE_KEY); }
+  catch (_) { return { status: 'unavailable', items: [], raw: null }; }
   try {
-    const data = JSON.parse(target.getItem(LIBRARY_STORAGE_KEY) || '[]');
-    const rawItems = Array.isArray(data) ? data : data?.items;
-    if (!Array.isArray(rawItems)) return [];
-    return rawItems.map(normalizeLibraryItem).filter(Boolean).slice(0, MAX_ITEMS);
+    const data = raw === null ? [] : JSON.parse(raw);
+    if (!Array.isArray(data) && data?.version !== undefined && data.version !== 1) return { status: 'unsupported', items: [], raw };
+    const rawItems = Array.isArray(data) ? data : data?.version === 1 ? data.items : null;
+    if (!Array.isArray(rawItems) || rawItems.length > MAX_LIBRARY_ITEMS) return { status: 'corrupt', items: [], raw };
+    if (rawItems.some(item => !item?.states || typeof item.states !== 'object' || Array.isArray(item.states) || Object.entries(item.states).some(([section, active]) => !SECTION_KEYS.has(section) || typeof active !== 'boolean'))) {
+      return { status: 'corrupt', items: [], raw };
+    }
+    const items = rawItems.map(normalizeLibraryItem);
+    if (items.some(item => !item)) return { status: 'corrupt', items: [], raw };
+    return { status: 'ok', items, raw };
   } catch (_) {
-    return [];
+    return { status: 'corrupt', items: [], raw };
   }
 }
 
@@ -88,27 +98,32 @@ function writeItems(items, storage) {
 }
 
 export function readLibrary(storage) {
-  return readItems(storage);
+  return inspectLibrary(storage).items;
 }
 
 export function libraryItems(section, storage) {
   if (!SECTION_KEYS.has(section)) return [];
-  return readItems(storage)
+  return readLibrary(storage)
     .filter(item => item.states[section])
     .sort((left, right) => right.updatedAt - left.updatedAt || left.title.localeCompare(right.title, 'ru'));
 }
 
 export function libraryState(item, section, storage) {
   if (!validMedia(item) || !SECTION_KEYS.has(section)) return false;
-  const found = readItems(storage).find(saved => saved.type === item.type && saved.id === item.id);
+  const found = readLibrary(storage).find(saved => saved.type === item.type && saved.id === item.id);
   return found?.states[section] === true;
 }
 
 export function toggleLibraryState(item, section, { storage, now = Date.now() } = {}) {
   if (!validMedia(item) || !SECTION_KEYS.has(section)) return { saved: false, active: false };
-  const items = readItems(storage);
+  const snapshot = inspectLibrary(storage);
+  if (snapshot.status !== 'ok') return { saved: false, active: false, reason: snapshot.status, message: LIBRARY_RECOVERY_MESSAGE };
+  const items = snapshot.items;
   const index = items.findIndex(saved => saved.type === item.type && saved.id === item.id);
   const current = index >= 0 ? items[index] : null;
+  if (!current && items.length >= MAX_LIBRARY_ITEMS) {
+    return { saved: false, active: false, reason: 'limit', message: 'В «Моё» уже 500 записей. Убери все отметки у ненужной записи и попробуй снова. Существующие списки не изменены.' };
+  }
   const nextStates = states(current?.states);
   nextStates[section] = !nextStates[section];
   const active = nextStates[section];
@@ -120,5 +135,6 @@ export function toggleLibraryState(item, section, { storage, now = Date.now() } 
     if (index >= 0) items[index] = next;
     else items.unshift(next);
   }
-  return { saved: writeItems(items.slice(0, MAX_ITEMS), storage), active };
+  const saved = writeItems(items, storage);
+  return { saved, active: saved ? active : current?.states[section] === true };
 }

@@ -1,8 +1,9 @@
-import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, fetchTrailer, formatRating, imageUrl, posterSrcset, READY_LISTS } from './tmdb.js?v=20261007perf2';
-import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007perf2';
-import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007perf2';
-import { buildSharePayload, shareLink } from './share.js?v=20261007perf2';
-import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007perf2';
+import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, fetchTrailer, formatRating, imageUrl, posterSrcset, READY_LISTS } from './tmdb.js?v=20261011fix1';
+import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261011fix1';
+import { LIBRARY_SECTIONS, LIBRARY_RECOVERY_MESSAGE, inspectLibrary, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261011fix1';
+import { buildSharePayload, shareLink } from './share.js?v=20261011fix1';
+import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261011fix1';
+import { createGenreCache } from './genres.js?v=20261011fix1';
 
 const root = document.documentElement;
 root.dataset.ratingDesign = 'ring';
@@ -33,6 +34,8 @@ const els = {
   genreChips: document.querySelector('#genre-chips'),
   clearGenres: document.querySelector('#clear-genres'),
   genreOptions: document.querySelector('#genre-options'),
+  genreStatus: document.querySelector('#genre-status'),
+  genreRetry: document.querySelector('#retry-genres'),
   period: document.querySelector('#period'),
   rating: document.querySelector('#rating'),
   sort: document.querySelector('#sort'),
@@ -77,7 +80,19 @@ let backupModule = null;
 let backupUpdater = null;
 const genreData = { movie: null, tv: null };
 const genreOptionsData = { movie: null, tv: null };
-const genrePromises = { movie: null, tv: null };
+const genresCache = createGenreCache(fetchGenres, (type, entry) => {
+  if (entry.status === 'loaded') {
+    genreData[type] = entry.genres;
+    genreOptionsData[type] = genreOptions(entry.genres);
+    if (draftPickType === type) populateGenres();
+    const visible = !state.view && catalogCache.get(catalogKey(state));
+    if (visible) {
+      if (state.mode === 'pick' && state.pickType === type) orderGenresByPopularity(type, visible.items);
+      updateCardGenres(visible.items);
+    }
+  }
+  if (draftPickType === type) renderGenreStatus();
+});
 const systemTheme = matchMedia('(prefers-color-scheme: dark)');
 let themeChoice = 'system';
 let installPrompt = null;
@@ -236,6 +251,7 @@ function populateGenres() {
     els.genreOptions.append(label);
   }
   renderGenreSelection();
+  renderGenreStatus();
 }
 
 function selectedGenres() {
@@ -281,25 +297,18 @@ function genreOptions(genres) {
 }
 
 function ensureGenres(type) {
-  if (genreData[type]) return Promise.resolve(genreData[type]);
-  if (!genrePromises[type]) {
-    genrePromises[type] = fetchGenres(type).then(genres => {
-      genreData[type] = genres;
-      genreOptionsData[type] = genreOptions(genres);
-      if (draftPickType === type) populateGenres();
-      // Refresh the visible catalog, even if its original request is no longer active.
-      const visible = !state.view && catalogCache.get(catalogKey(state));
-      if (visible) {
-        if (state.mode === 'pick' && state.pickType === type) orderGenresByPopularity(type, visible.items);
-        updateCardGenres(visible.items);
-      }
-      return genres;
-    }).catch(() => {
-      genreData[type] = [];
-      return [];
-    });
-  }
-  return genrePromises[type];
+  return genresCache.ensure(type);
+}
+
+function renderGenreStatus() {
+  const entry = genresCache.get(draftPickType);
+  els.genreStatus.textContent = entry.status === 'error' ? 'Не удалось загрузить жанры. Каталог доступен; выбранные условия сохранены.'
+    : entry.status === 'loading' ? 'Загружаем жанры…'
+      : entry.status === 'loaded' && !entry.genres.length ? 'TMDB вернул пустой список жанров.' : '';
+  // Keep a keyboard retry target mounted while the request is pending.
+  const retrying = entry.status === 'loading' && !els.genreRetry.hidden;
+  els.genreRetry.hidden = entry.status !== 'error' && !retrying;
+  els.genreRetry.setAttribute('aria-disabled', String(retrying));
 }
 
 function orderGenresByPopularity(type, items) {
@@ -409,6 +418,10 @@ function renderCatalog(result, animate = true) {
   if (!result.items.length) {
     els.emptyTitle.textContent = state.mode === 'search' ? 'Ничего не найдено' : state.mode === 'lists' ? 'В списке пока нет фильмов' : state.mode === 'my' ? `В «${LIBRARY_SECTIONS[state.library].label}» пока пусто` : 'Подборка пуста';
     els.emptyCopy.textContent = state.mode === 'my' ? 'Открой карточку фильма или сериала и добавь его в этот список.' : state.mode === 'lists' && editorialCollection(state.list) ? 'Сейчас не удалось загрузить карточки подборки. Проверь соединение и повтори запрос.' : 'Попробуйте изменить запрос или параметры.';
+    if (state.mode === 'my' && result.storageError) {
+      els.emptyTitle.textContent = 'Не удалось прочитать «Моё»';
+      els.emptyCopy.textContent = LIBRARY_RECOVERY_MESSAGE;
+    }
   }
   const totalPages = Math.max(1, result.totalPages);
   els.pages.hidden = totalPages <= 1;
@@ -440,7 +453,7 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     return;
   }
   if (state.mode === 'my') {
-    const result = { items: libraryItems(state.library), page: 1, totalPages: 1 };
+    const result = { items: libraryItems(state.library), storageError: inspectLibrary().status !== 'ok', page: 1, totalPages: 1 };
     catalogCache.set(key, result);
     renderCatalog(result, animate);
     return;
@@ -595,6 +608,7 @@ function renderDetail(data) {
   score.append(scoreBadge(data.vote_average, data.vote_count));
   const scoreInfo = node('div', 'score-info');
   scoreInfo.append(node('span', 'score-label', 'Оценка пользователей'));
+  if (data.vote_count) scoreInfo.append(node('span', 'sr-only', `Оценка TMDB: ${formatRating(data.vote_average, data.vote_count)} из 10.`));
   scoreInfo.append(node('span', 'score-votes', formatVotes(data.vote_count)));
   score.append(scoreInfo);
   content.append(score);
@@ -618,7 +632,7 @@ function renderDetail(data) {
     rating: Number(data.vote_average) || 0,
     votes: Number(data.vote_count) || 0,
   };
-  const drawLibraryActions = () => {
+  const drawLibraryActions = (focusSection = null) => {
     libraryButtons.replaceChildren();
     for (const [section, meta] of Object.entries(LIBRARY_SECTIONS)) {
       const active = libraryState(savedItem, section);
@@ -628,14 +642,15 @@ function renderDetail(data) {
       button.addEventListener('click', () => {
         const result = toggleLibraryState(savedItem, section);
         if (!result.saved) {
-          libraryStatus.textContent = 'Не удалось сохранить список в этом браузере.';
+          libraryStatus.textContent = result.message || 'Не удалось сохранить список в этом браузере. Списки не изменены.';
           return;
         }
         catalogCache.clear();
-        drawLibraryActions();
+        drawLibraryActions(document.activeElement === button ? section : null);
         libraryStatus.textContent = result.active ? `Добавлено: ${meta.label}.` : `Убрано: ${meta.label}.`;
       });
       libraryButtons.append(button);
+      if (focusSection === section) button.focus({ preventScroll: true });
     }
   };
   drawLibraryActions();
@@ -812,7 +827,7 @@ async function updateBackup() {
   if (backupUpdater) { backupUpdater(); return; }
   els.backup.replaceChildren(node('p', 'library-status', 'Загружаем перенос и резервную копию…'));
   try {
-    const { mountLibraryBackup } = await (backupModule ||= import('./backup-ui.js?v=20261007perf2'));
+    const { mountLibraryBackup } = await (backupModule ||= import('./backup-ui.js?v=20261011fix1'));
     if (!backupUpdater) {
       els.backup.replaceChildren();
       backupUpdater = mountLibraryBackup(els.backup, () => {
@@ -854,6 +869,14 @@ els.filterToggle.addEventListener('click', () => {
 });
 els.genreToggle.addEventListener('click', () => {
   setGenrePopover(els.genrePopover.hidden);
+  if (!els.genrePopover.hidden) ensureGenres(draftPickType);
+});
+els.genreRetry.addEventListener('click', async () => {
+  if (els.genreRetry.getAttribute('aria-disabled') === 'true') return;
+  const focused = document.activeElement === els.genreRetry;
+  const type = draftPickType;
+  await ensureGenres(type);
+  if (focused && draftPickType === type && els.genreRetry.hidden && !els.pickControls.hidden && document.activeElement === document.body) els.genreToggle.focus({ preventScroll: true });
 });
 els.clearGenres.addEventListener('click', () => {
   draftGenres = [];
