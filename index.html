@@ -13,10 +13,11 @@
   <link rel="apple-touch-icon" href="assets/pwa-icon-192.png">
   <link rel="preload" href="assets/hero.jpg" as="image" fetchpriority="high">
   <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
+  <link rel="preconnect" href="https://api.themoviedb.org" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
-  <link rel="stylesheet" href="main.css?v=20261007package5">
+  <link rel="stylesheet" href="main.css?v=20261007perf2">
   <script>
     try {
       const choice = localStorage.getItem('movie-theme') || 'system';
@@ -25,7 +26,13 @@
     } catch (_) { /* The site remains usable when storage is unavailable. */ }
     if (new URLSearchParams(location.search).has('view')) document.documentElement.dataset.route = 'detail';
   </script>
-  <script type="module" src="fetchscript.js?v=20261007package5"></script>
+  <link rel="modulepreload" href="tmdb.js?v=20261007perf2">
+  <link rel="modulepreload" href="tmdb-config.js">
+  <link rel="modulepreload" href="state.js?v=20261007perf2">
+  <link rel="modulepreload" href="library.js?v=20261007perf2">
+  <link rel="modulepreload" href="share.js?v=20261007perf2">
+  <link rel="modulepreload" href="editorial.js?v=20261007perf2">
+  <script type="module" src="fetchscript.js?v=20261007perf2"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">К содержанию</a>

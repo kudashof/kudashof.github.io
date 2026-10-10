@@ -190,7 +190,7 @@ test('all local module dependency versions and portability shell assets are cach
   const shell = await readFile(new URL('../sw.js', import.meta.url), 'utf8');
   for (const file of ['fetchscript.js', 'state.js', 'share.js', 'backup.js', 'backup-ui.js', 'editorial.js']) {
     const source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
-    for (const match of source.matchAll(/from ['"]\.\/(\w[\w.-]*\.js(?:\?[^'"]+)?)['"]/g)) assert.ok(shell.includes(`'./${match[1]}'`), `${file}: ${match[1]} not cached`);
+    for (const match of source.matchAll(/(?:from\s*|import\()['"]\.\/(\w[\w.-]*\.js(?:\?[^'"]+)?)['"]/g)) assert.ok(shell.includes(`'./${match[1]}'`), `${file}: ${match[1]} not cached`);
   }
   const entry = await readFile(new URL('../fetchscript.js', import.meta.url), 'utf8');
   assert.match(entry, /node\('p', 'editorial-reason', item\.reason\)/); // Text, never innerHTML.
