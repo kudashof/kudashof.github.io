@@ -1,6 +1,14 @@
 # LIB-PORT-001 Экспорт и импорт раздела «Моё»
 
-Статус: `in_progress`
+Решение: `approved`
+
+Объём решения: `implementation`
+
+Реализация: `done`
+
+Выпуск: `pages_built`
+
+Приёмка: `pending`
 
 Приоритет: `now`
 

@@ -1,6 +1,14 @@
 # REC-001 Рекомендации на карточке
 
-Статус: `released`
+Решение: `approved`
+
+Объём решения: `implementation`
+
+Реализация: `done`
+
+Выпуск: `public_verified`
+
+Приёмка: `passed`
 
 Приоритет: `now`
 

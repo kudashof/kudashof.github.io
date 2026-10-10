@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "project": "MovieDB",
-  "updated": "2026-10-07",
+  "updated": "2026-10-11",
   "sourceOfTruth": "docs/harness/README.md",
   "productGoal": "Сократить путь от неопределённости до обоснованного выбора и облегчить возвращение к выбранному фильму или сериалу.",
   "constraints": [
@@ -11,61 +11,70 @@
     "browser-local-personal-data",
     "real-iphone-safari-release-gate"
   ],
-  "allowedStatuses": [
-    "idea",
-    "researched",
-    "ready_for_decision",
-    "approved",
-    "in_progress",
-    "verified",
-    "released",
-    "paused",
-    "rejected"
-  ],
   "features": [
     {
       "id": "REC-001",
       "title": "Рекомендации на карточке",
       "priority": "now",
-      "status": "released",
       "decision": "approved",
+      "decisionScope": "implementation",
+      "implementation": "done",
+      "delivery": "public_verified",
+      "acceptance": "passed",
       "brief": "docs/harness/features/recommendations.md",
+      "evidenceRef": "docs/harness/EVIDENCE.md#REC-001",
       "dependsOn": []
     },
     {
       "id": "SHARE-001",
       "title": "Поделиться карточкой и подбором",
       "priority": "now",
-      "status": "in_progress",
       "decision": "approved",
+      "decisionScope": "implementation",
+      "implementation": "done",
+      "delivery": "pages_built",
+      "acceptance": "pending",
       "brief": "docs/harness/features/share.md",
+      "evidenceRef": "docs/harness/EVIDENCE.md#SHARE-001",
       "dependsOn": []
     },
     {
       "id": "LIB-PORT-001",
       "title": "Экспорт и импорт раздела «Моё»",
       "priority": "now",
-      "status": "in_progress",
       "decision": "approved",
+      "decisionScope": "implementation",
+      "implementation": "done",
+      "delivery": "pages_built",
+      "acceptance": "pending",
       "brief": "docs/harness/features/library-portability.md",
+      "evidenceRef": "docs/harness/EVIDENCE.md#LIB-PORT-001",
       "dependsOn": []
     },
     {
       "id": "EDIT-001",
       "title": "Редакционные подборки",
       "priority": "now",
-      "status": "in_progress",
       "decision": "approved",
+      "decisionScope": "implementation",
+      "implementation": "done",
+      "delivery": "pages_built",
+      "acceptance": "pending",
       "brief": "docs/harness/features/editorial-collections.md",
+      "evidenceRef": "docs/harness/EVIDENCE.md#EDIT-001",
       "dependsOn": []
     },
     {
       "id": "PROVIDERS-001",
       "title": "Где смотреть",
       "priority": "research",
-      "status": "researched",
       "decision": "approved",
+      "decisionScope": "research",
+      "implementation": "not_started",
+      "delivery": "none",
+      "acceptance": "not_applicable",
       "brief": "docs/harness/features/watch-providers.md",
+      "evidenceRef": "docs/harness/EVIDENCE.md#PROVIDERS-001",
       "dependsOn": []
     }
   ]
