@@ -1,4 +1,4 @@
-import { editorialCollection } from './editorial.js?v=20261007perf2';
+import { editorialCollection } from './editorial.js?v=20261011fix1';
 
 export const DEFAULT_STATE = Object.freeze({
   mode: 'pick', q: '', searchType: 'all', pickType: 'movie',

@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
-  <link rel="stylesheet" href="main.css?v=20261007perf2">
+  <link rel="stylesheet" href="main.css?v=20261011fix1">
   <script>
     try {
       const choice = localStorage.getItem('movie-theme') || 'system';
@@ -26,13 +26,14 @@
     } catch (_) { /* The site remains usable when storage is unavailable. */ }
     if (new URLSearchParams(location.search).has('view')) document.documentElement.dataset.route = 'detail';
   </script>
-  <link rel="modulepreload" href="tmdb.js?v=20261007perf2">
+  <link rel="modulepreload" href="tmdb.js?v=20261011fix1">
   <link rel="modulepreload" href="tmdb-config.js">
-  <link rel="modulepreload" href="state.js?v=20261007perf2">
-  <link rel="modulepreload" href="library.js?v=20261007perf2">
-  <link rel="modulepreload" href="share.js?v=20261007perf2">
-  <link rel="modulepreload" href="editorial.js?v=20261007perf2">
-  <script type="module" src="fetchscript.js?v=20261007perf2"></script>
+  <link rel="modulepreload" href="state.js?v=20261011fix1">
+  <link rel="modulepreload" href="library.js?v=20261011fix1">
+  <link rel="modulepreload" href="genres.js?v=20261011fix1">
+  <link rel="modulepreload" href="share.js?v=20261011fix1">
+  <link rel="modulepreload" href="editorial.js?v=20261011fix1">
+  <script type="module" src="fetchscript.js?v=20261011fix1"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">К содержанию</a>
@@ -85,6 +86,7 @@
                     <p>Можно выбрать несколько</p>
                     <div id="genre-options" class="genre-options" role="group" aria-label="Жанры"></div>
                   </div>
+                  <div class="genre-feedback"><p id="genre-status" role="status"></p><button id="retry-genres" type="button" hidden>Повторить загрузку жанров</button></div>
                 </div>
                 <label class="sr-only" for="period">Год или период</label><select id="period"><option value="">Год: любой</option><option value="last5">Последние 5 лет</option><option value="2020s">2020-е</option><option value="2010s">2010-е</option><option value="2000s">2000-е</option><option value="1990s">1990-е</option><option value="before1990">До 1990</option></select>
                 <label class="sr-only" for="rating">Минимальная оценка</label><select id="rating"><option value="">Рейтинг: любой</option><option value="6">От 6,0</option><option value="7">От 7,0</option><option value="8">От 8,0</option></select>

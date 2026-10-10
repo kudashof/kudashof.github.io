@@ -1,5 +1,5 @@
-import { readLibrary } from './library.js?v=20261007perf2';
-import { createBackup, parseBackup, previewImport, commitImport, MAX_BACKUP_BYTES } from './backup.js?v=20261007perf2';
+import { inspectLibrary, LIBRARY_RECOVERY_MESSAGE } from './library.js?v=20261011fix1';
+import { createBackup, parseBackup, previewImport, commitImport, MAX_BACKUP_BYTES } from './backup.js?v=20261011fix1';
 
 function element(tag, text = '') {
   const result = document.createElement(tag);
@@ -9,10 +9,14 @@ function element(tag, text = '') {
 
 function download(items, prefix = 'moviedb-library') {
   const backup = createBackup(items);
-  const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' }));
+  downloadRaw(JSON.stringify(backup, null, 2), `${prefix}-${backup.exportedAt.slice(0, 10)}.json`);
+}
+
+function downloadRaw(raw, filename = 'moviedb-library-damaged.json') {
+  const url = URL.createObjectURL(new Blob([raw], { type: 'application/json;charset=utf-8' }));
   const link = element('a');
   link.href = url;
-  link.download = `${prefix}-${backup.exportedAt.slice(0, 10)}.json`;
+  link.download = filename;
   document.body.append(link);
   link.click();
   link.remove();
@@ -75,8 +79,10 @@ export function mountLibraryBackup(host, onChange) {
   let previous = null;
   let sequence = 0;
   const update = () => {
-    exportButton.disabled = readLibrary().length === 0;
+    const snapshot = inspectLibrary();
+    exportButton.disabled = snapshot.status !== 'ok' || snapshot.items.length === 0;
     emptyNote.hidden = !exportButton.disabled;
+    emptyNote.textContent = snapshot.status === 'ok' ? 'Пока сохранять нечего — сначала добавь фильм или сериал в «Моё».' : LIBRARY_RECOVERY_MESSAGE;
   };
   const drawPreview = () => {
     const mode = radios.find(radio => radio.checked).value;
@@ -85,17 +91,26 @@ export function mountLibraryBackup(host, onChange) {
     saveBefore.hidden = mode !== 'replace';
     confirmation.checked = false;
     try {
-      plan = previewImport(parsed, mode);
+      plan = previewImport(parsed, mode, undefined, { recoverCorrupt: true });
       summary.textContent = `В файле: ${parsed.valid} корректных записей; пропущено: ${parsed.skipped}; повторов: ${parsed.duplicates}. Совпадений с текущими: ${plan.conflicts}.`;
       consequence.textContent = `Записей после ${mode === 'merge' ? 'объединения' : 'замены'}: ${plan.items.length}. ${mode === 'merge' ? 'Отметки всех трёх списков объединятся.' : 'Перед заменой скачай текущую копию. Предыдущая версия также останется в памяти до обновления или закрытия страницы.'}`;
       apply.textContent = mode === 'merge' ? 'Объединить списки' : 'Заменить списки';
       apply.disabled = !parsed.items.length || mode === 'replace';
       saveBefore.disabled = !plan.before.length;
+      if (plan.recovering) {
+        consequence.textContent = `Текущие данные повреждены. Замена восстановит ${plan.items.length} записей из файла. Сначала скачай исходные данные; они также останутся в памяти до закрытия или обновления страницы.`;
+        saveBefore.textContent = 'Скачать исходные повреждённые данные';
+        saveBefore.disabled = false;
+      } else saveBefore.textContent = 'Скачать текущие списки перед заменой';
       if (!parsed.items.length) consequence.textContent = 'В файле нет корректных записей. Текущие списки не изменятся.';
     } catch (error) { plan = null; status.textContent = error.message; }
   };
   exportButton.addEventListener('click', () => {
-    try { download(readLibrary()); status.textContent = 'Копия подготовлена. Сохрани файл; при переносе выбери его на другом устройстве.'; }
+    try {
+      const snapshot = inspectLibrary();
+      if (snapshot.status !== 'ok') throw new Error('unreadable');
+      download(snapshot.items); status.textContent = 'Копия подготовлена. Сохрани файл; при переносе выбери его на другом устройстве.';
+    }
     catch (_) { status.textContent = 'Не удалось подготовить файл. Попробуй ещё раз.'; }
   });
   fileInput.addEventListener('change', async () => {
@@ -120,17 +135,20 @@ export function mountLibraryBackup(host, onChange) {
   });
   radios.forEach(radio => radio.addEventListener('change', () => { status.textContent = 'Списки ещё не изменены.'; drawPreview(); }));
   confirmation.addEventListener('change', () => { apply.disabled = !plan?.imported || !confirmation.checked; });
-  saveBefore.addEventListener('click', () => { if (plan) download(plan.before); });
-  recovery.addEventListener('click', () => { if (previous) download(previous, 'moviedb-library-before-import'); });
+  saveBefore.addEventListener('click', () => { if (plan) plan.recovering ? downloadRaw(plan.rawBefore) : download(plan.before); });
+  recovery.addEventListener('click', () => {
+    if (previous?.raw !== undefined) downloadRaw(previous.raw);
+    else if (previous) download(previous.items, 'moviedb-library-before-import');
+  });
   cancel.addEventListener('click', () => { ++sequence; parsed = null; plan = null; preview.hidden = true; status.textContent = 'Импорт отменён. Списки не изменены.'; fileInput.focus(); });
   apply.addEventListener('click', () => {
     if (!plan || (plan.mode === 'replace' && !confirmation.checked)) return;
     try {
       if (!commitImport(plan)) return;
-      previous = plan.before;
-      recovery.hidden = previous.length === 0;
+      previous = plan.recovering ? { raw: plan.rawBefore } : plan.before.length ? { items: plan.before } : null;
+      recovery.hidden = previous === null;
       preview.hidden = true;
-      status.textContent = `Списки восстановлены. Записей: ${plan.items.length}.${previous.length ? ' Предыдущую версию можно скачать до обновления или закрытия страницы.' : ''}`;
+      status.textContent = `Списки восстановлены. Записей: ${plan.items.length}.${previous !== null ? ' Предыдущую версию можно скачать до обновления или закрытия страницы.' : ''}`;
       parsed = null;
       plan = null;
       update();

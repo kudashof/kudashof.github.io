@@ -1,8 +1,8 @@
-import { LIBRARY_STORAGE_KEY, normalizeLibraryItem } from './library.js?v=20261007perf2';
+import { LIBRARY_STORAGE_KEY, MAX_LIBRARY_ITEMS, inspectLibrary, normalizeLibraryItem } from './library.js?v=20261011fix1';
 
 export const BACKUP_FORMAT = 'moviedb-library';
 export const MAX_BACKUP_BYTES = 2 * 1024 * 1024;
-export const MAX_LIBRARY_ITEMS = 500;
+export { MAX_LIBRARY_ITEMS };
 const FIELDS = new Set(['id', 'type', 'title', 'year', 'poster', 'posterLarge', 'genreLabels', 'rating', 'votes', 'states', 'updatedAt']);
 const key = item => `${item.type}:${item.id}`;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -73,32 +73,28 @@ export function parseBackup(text) {
   return { items, valid: valid.length, skipped: data.items.length - valid.length, duplicates: valid.length - items.length, exportedAt: data.exportedAt };
 }
 
-function currentLibrary(storage) {
-  let raw;
-  try { raw = storage.getItem(LIBRARY_STORAGE_KEY); } catch (_) { fail('Хранилище браузера недоступно. Списки не изменены.'); }
-  let data;
-  try { data = JSON.parse(raw || '[]'); } catch (_) { fail('Текущий список повреждён. Импорт остановлен, данные не изменены.'); }
-  const items = Array.isArray(data) ? data : data?.version === 1 ? data.items : null;
-  if (!Array.isArray(items) || items.length > MAX_LIBRARY_ITEMS) fail('Текущий список не распознан. Данные не изменены.');
-  const normalized = items.map(normalizeLibraryItem);
-  if (normalized.some(item => !item)) fail('Текущий список содержит повреждённые записи. Данные не изменены.');
-  return { raw, items: dedupe(normalized) };
+function currentLibrary(storage, recoverCorrupt = false) {
+  const snapshot = inspectLibrary(storage);
+  if (snapshot.status === 'unavailable') fail('Хранилище браузера недоступно. Списки не изменены.');
+  if (snapshot.status === 'unsupported') fail('Текущий список не распознан. Данные не изменены.');
+  if (snapshot.status === 'corrupt' && !recoverCorrupt) fail('Текущий список повреждён. Для восстановления выбери замену из резервной копии. Данные не изменены.');
+  return { raw: snapshot.raw, items: dedupe(snapshot.items), recovering: snapshot.status === 'corrupt' };
 }
 
-export function previewImport(backup, mode = 'merge', storage) {
+export function previewImport(backup, mode = 'merge', storage, { recoverCorrupt = false } = {}) {
   if (!['merge', 'replace'].includes(mode)) fail('Выбери объединение или замену.');
   storage = storageTarget(storage);
-  const before = currentLibrary(storage);
+  const before = currentLibrary(storage, mode === 'replace' && recoverCorrupt);
   const currentKeys = new Set(before.items.map(key));
   const conflicts = backup.items.filter(item => currentKeys.has(key(item))).length;
   const items = backup.items.length === 0 ? before.items : mode === 'merge' ? dedupe([...before.items, ...backup.items]) : backup.items;
   if (items.length > MAX_LIBRARY_ITEMS) fail('После объединения получится больше 500 записей. Списки не изменены.');
-  return { mode, items, before: before.items, rawBefore: before.raw, imported: backup.items.length, conflicts };
+  return { mode, items, before: before.items, rawBefore: before.raw, recovering: before.recovering, imported: backup.items.length, conflicts };
 }
 
 export function commitImport(plan, storage) {
   storage = storageTarget(storage);
-  const before = currentLibrary(storage);
+  const before = currentLibrary(storage, plan.mode === 'replace' && plan.recovering);
   if (before.raw !== plan.rawBefore) fail('Список изменился после предпросмотра. Выбери файл ещё раз.');
   if (!plan.imported) return false;
   // A single storage write: validation and conflict handling have already finished.
