@@ -25,6 +25,8 @@ main{max-width:none;margin:0;padding:0}
 .icon-star{--icon:url('assets/icons/star-fill.svg');width:17px;height:17px;color:#e9b000}
 .icon-share{--icon:url('assets/icons/share.svg');width:24px;height:24px}
 .theme-icon{color:#9dbf00;width:25px;height:25px}
+/* Фон системного меню должен соответствовать цвету текста выбранной темы. */
+#theme-choice,#theme-choice option{color:var(--fg);background-color:var(--bg)}
 .find:hover .icon-arrow-right{transform:translateX(5px)}
 .input:focus-within{outline:3px solid #809c00;outline-offset:3px}
 .input input:focus-visible{outline:0}
