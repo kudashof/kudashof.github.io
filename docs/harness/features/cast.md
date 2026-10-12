@@ -3,7 +3,7 @@
 Решение: `approved`
 Объём решения: `implementation`
 Реализация: `done`
-Выпуск: `branch`
+Выпуск: `public_verified`
 Приёмка: `pending`
 Приоритет: `now`
 
