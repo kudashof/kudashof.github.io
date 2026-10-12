@@ -18,8 +18,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
   <link rel="stylesheet" href="main.css?v=20261012cast2">
-  <link rel="stylesheet" href="spinner.css?v=20261012spinner3">
+  <link rel="stylesheet" href="spinner.css?v=20261012spinner6">
+  <style>
+    html.startup-active { overflow: hidden; }
+    #startup-overlay { display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; min-height: 100vh; background: #f6f6f4; color: #0a0a0a; }
+    html[data-theme=dark] #startup-overlay { background: #0c0c0c; color: #f8f8f5; }
+    html.startup-active #startup-overlay { display: flex; }
+  </style>
   <script>
+    document.documentElement.classList.add('startup-active');
     try {
       const choice = localStorage.getItem('movie-theme') || 'system';
       const dark = choice === 'dark' || (choice === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -33,9 +40,139 @@
   <link rel="modulepreload" href="library.js?v=20261007perf2">
   <link rel="modulepreload" href="share.js?v=20261007perf2">
   <link rel="modulepreload" href="editorial.js?v=20261007perf2">
-  <script type="module" src="fetchscript.js?v=20261012spinner3"></script>
+  <script type="module" src="fetchscript.js?v=20261012spinner6"></script>
 </head>
 <body>
+  <div id="startup-overlay" class="startup-overlay" role="status" aria-live="polite" aria-label="Загрузка сайта">
+    <div class="startup-overlay__content">
+      <span class="cinema-spinner cinema-spinner--large" aria-hidden="true"><img class="cinema-spinner__core" src="assets/pwa-icon.svg" width="32" height="32" alt=""></span>
+      <p id="startup-status">Загружаем первый экран…</p>
+      <div id="startup-notice" class="startup-overlay__notice" hidden><p id="startup-notice-text"></p><button id="startup-retry" type="button">Повторить загрузку</button></div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const overlay = document.querySelector('#startup-overlay');
+      const status = document.querySelector('#startup-status');
+      const notice = document.querySelector('#startup-notice');
+      const noticeText = document.querySelector('#startup-notice-text');
+      const retryButton = document.querySelector('#startup-retry');
+      const vpnHint = 'Если ты в России, попробуй включить VPN и повторить загрузку. Также проверь подключение к интернету.';
+      let visibleMs = 0;
+      let attemptMs = 0;
+      let visibleSince = null;
+      let started = false;
+      let hasFrame = false;
+      let ready = false;
+      let closed = false;
+      let retryHandler = () => location.reload();
+      let timeoutHandler = null;
+      let hintTimer;
+      let deadlineTimer;
+      let releaseTimer;
+      const elapsed = (saved) => saved + (visibleSince === null ? 0 : performance.now() - visibleSince);
+      const clearTimers = () => { clearTimeout(hintTimer); clearTimeout(deadlineTimer); clearTimeout(releaseTimer); };
+      const pause = () => {
+        if (visibleSince !== null) {
+          const duration = performance.now() - visibleSince;
+          visibleMs += duration;
+          attemptMs += duration;
+          visibleSince = null;
+        }
+        clearTimers();
+      };
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        clearTimers();
+        root.classList.remove('startup-active');
+        document.querySelector('.site-shell')?.removeAttribute('inert');
+        if (overlay.contains(document.activeElement)) document.querySelector('#main-content')?.focus({ preventScroll: true });
+        overlay.remove();
+        document.removeEventListener('visibilitychange', visibilityChanged);
+      };
+      const showHint = () => {
+        noticeText.textContent = navigator.onLine === false
+          ? 'Нет подключения к интернету. Подключись к сети и повтори загрузку.'
+          : 'Загрузка затянулась. ' + vpnHint;
+        notice.hidden = false;
+      };
+      const showBootFailure = () => {
+        if (root.dataset.route === 'detail') {
+          document.querySelector('#list-view').hidden = true;
+          document.querySelector('#detail-view').hidden = false;
+          const content = document.querySelector('#detail-content');
+          const message = document.createElement('p');
+          message.textContent = 'Не удалось открыть страницу. Проверь соединение и обнови её.';
+          const retry = document.createElement('button');
+          retry.type = 'button';
+          retry.textContent = 'Повторить';
+          retry.addEventListener('click', () => location.reload());
+          content.replaceChildren(message, retry);
+        } else {
+          const error = document.querySelector('#catalog-error');
+          const copy = document.querySelector('#catalog-error-text');
+          if (error && copy) {
+            copy.textContent = 'Не удалось загрузить сайт. Проверь соединение и обнови страницу.';
+            error.hidden = false;
+            document.querySelector('#retry-catalog')?.addEventListener('click', () => location.reload(), { once: true });
+          }
+        }
+      };
+      const schedule = () => {
+        clearTimers();
+        if (closed || visibleSince === null) return;
+        if (ready) {
+          releaseTimer = setTimeout(close, Math.max(0, 3000 - elapsed(visibleMs)));
+          return;
+        }
+        if (elapsed(attemptMs) >= 8000) showHint();
+        else hintTimer = setTimeout(showHint, 8000 - elapsed(attemptMs));
+        deadlineTimer = setTimeout(() => {
+          if (closed || ready) return;
+          try { if (timeoutHandler) timeoutHandler(); else showBootFailure(); }
+          catch (_) { showBootFailure(); }
+          api.finish();
+        }, Math.max(0, 15000 - elapsed(attemptMs)));
+      };
+      const begin = () => {
+        if (started || closed || document.hidden) return;
+        started = true;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (closed) return;
+          if (document.hidden) { started = false; return; }
+          hasFrame = true;
+          visibleSince = performance.now();
+          schedule();
+        }));
+      };
+      const visibilityChanged = () => {
+        if (document.hidden) pause();
+        else if (visibleSince === null && !started) begin();
+        else if (visibleSince === null && hasFrame) { visibleSince = performance.now(); schedule(); }
+      };
+      const api = {
+        isActive: () => !closed && !ready,
+        remainingMs: () => Math.max(0, 15000 - elapsed(attemptMs)),
+        setStatus: text => { if (!closed) status.textContent = text; },
+        setRetryHandler: handler => { retryHandler = handler; },
+        setTimeoutHandler: handler => { timeoutHandler = handler; },
+        finish: () => { if (closed) return; ready = true; schedule(); },
+      };
+      retryButton.addEventListener('click', () => {
+        pause();
+        attemptMs = 0;
+        notice.hidden = true;
+        if (!document.hidden) { visibleSince = performance.now(); schedule(); }
+        retryHandler();
+      });
+      window.movieStartup = api;
+      document.addEventListener('visibilitychange', visibilityChanged);
+      if (!document.hidden) begin();
+    })();
+  </script>
+  <noscript><style>#startup-overlay { display: none !important; }</style><p>Для работы сайта нужен JavaScript.</p></noscript>
   <a class="skip-link" href="#main-content">К содержанию</a>
   <div class="site-shell">
     <header class="site-header">
@@ -148,5 +285,6 @@
       <div class="pwa-actions"><button id="install-app" type="button" hidden>Установить приложение</button><p id="install-hint" hidden></p><p id="install-status" role="status" aria-live="polite" hidden></p></div>
     </footer>
   </div>
+  <script>if (document.documentElement.classList.contains('startup-active')) document.querySelector('.site-shell').inert = true;</script>
 </body>
 </html>

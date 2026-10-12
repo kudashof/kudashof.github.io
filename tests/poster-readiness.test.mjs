@@ -33,8 +33,10 @@ test('каталог не готов, пока последний постер �
   second.load();
   await Promise.resolve();
   assert.equal(ready, false);
+  assert.equal(second.dataset.posterReady, undefined);
   decode();
   assert.deepEqual(await pending, { failed: 0, timedOut: false });
+  assert.equal(second.dataset.posterReady, 'true');
 });
 
 test('ошибка внешнего постера ждёт локальную заглушку и не маскируется как успех', async () => {
