@@ -101,6 +101,27 @@ html[data-route=detail] .list-view{display:none}
 .detail-rating .icon-star{color:#e9b000}
 .detail-page h2{font-size:22px;margin:30px 0 10px}
 .detail-overview{font-size:17px;line-height:1.65;max-width:70ch}
+.detail-credits{min-width:0;margin-top:26px;padding:18px 0 20px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.credits-status{margin:0;color:var(--muted);font-size:14px;line-height:1.5}
+.directors-list,.cast-grid{list-style:none;padding:0;margin:0}
+.directors-list{display:grid;gap:16px}
+.directors-group{padding-bottom:20px;border-bottom:1px solid var(--border)}
+.director-person{display:flex;align-items:center;gap:18px;min-width:0}
+.person-portrait{aspect-ratio:2/3;background:var(--soft);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.person-portrait img{display:block;width:100%;height:100%;object-fit:cover}
+.director-person .person-portrait{width:72px;flex:0 0 72px}
+.person-copy{min-width:0}
+.person-label,.person-role{color:var(--muted);font-size:14px;line-height:1.45}
+.person-name{font-size:16px;font-weight:600;line-height:1.4;margin:6px 0 0;overflow-wrap:anywhere}
+.person-role{margin:3px 0 0;overflow-wrap:anywhere}
+.person-photo-missing{font-size:13px;color:var(--muted);padding:8px;text-align:center}
+.detail-credits h2{margin:24px 0 14px}
+.cast-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px 16px}
+.cast-person{min-width:0}
+.people-toggle{border:0;background:transparent;color:var(--fg);padding:12px 0;margin-top:6px;min-height:44px;font-size:15px;text-decoration:underline;text-underline-offset:5px;cursor:pointer;text-align:left}
+.people-toggle:hover{text-decoration-color:var(--lime)}
+@media(max-width:1100px){.cast-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.director-person{gap:16px}.director-person .person-portrait{width:64px;flex-basis:64px}.cast-grid{gap:22px 14px}.cast-person .person-portrait{aspect-ratio:1}.person-name{font-size:15px}.person-role{font-size:13px}.trailer-box button{width:100%}}
 .trailer-box{margin-top:24px;max-width:750px}
 .trailer-box button{background:var(--lime);color:#080808;border:0;border-radius:4px;padding:14px 20px;font-weight:700;cursor:pointer}
 .trailer-box iframe{display:block;width:100%;aspect-ratio:16/9;border:0;margin-top:14px;background:#000}

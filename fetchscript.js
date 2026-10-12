@@ -1,4 +1,4 @@
-import { fetchCatalog, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, fetchTrailer, formatRating, imageUrl, posterSrcset, READY_LISTS } from './tmdb.js?v=20261007perf2';
+import { fetchCatalog, fetchCredits, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, fetchTrailer, formatRating, imageUrl, posterSrcset, READY_LISTS } from './tmdb.js?v=20261012cast1';
 import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007perf2';
 import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007perf2';
 import { buildSharePayload, shareLink } from './share.js?v=20261007perf2';
@@ -500,6 +500,87 @@ function detailLine(label, value) {
   return text;
 }
 
+function personPortrait(person) {
+  const portrait = node('div', 'person-portrait');
+  const missing = () => portrait.replaceChildren(node('span', 'person-photo-missing', 'Нет фото'));
+  if (!person.photo) { missing(); return portrait; }
+  const photo = node('img');
+  photo.src = person.photo;
+  photo.srcset = `${person.photo} 185w, ${person.photoLarge} 421w`;
+  photo.sizes = '(max-width:760px) calc((100vw - 50px) / 2), (max-width:1100px) 185px, 220px';
+  photo.width = 185;
+  photo.height = 278;
+  photo.alt = person.name;
+  photo.loading = 'lazy';
+  photo.decoding = 'async';
+  photo.addEventListener('error', missing, { once: true });
+  portrait.append(photo);
+  return portrait;
+}
+
+function expandablePeople(people, { director = false } = {}) {
+  const group = node('div', director ? 'directors-group' : 'cast-group');
+  const list = node('ul', director ? 'directors-list' : 'cast-grid');
+  list.id = director ? 'detail-directors-list' : 'detail-cast-list';
+  const initialCount = director ? 2 : 4;
+  const makePerson = person => {
+    const entry = node('li', director ? 'director-person' : 'cast-person');
+    const copy = node('div', 'person-copy');
+    if (director) copy.append(node('span', 'person-label', people.length === 1 ? 'Режиссёр' : 'Режиссёры'));
+    copy.append(node('p', 'person-name', person.name));
+    if (!director && person.character) copy.append(node('p', 'person-role', person.character));
+    entry.append(personPortrait(person), copy);
+    return entry;
+  };
+  list.append(...people.slice(0, initialCount).map(makePerson));
+  group.append(list);
+  if (people.length > initialCount) {
+    const expandText = director ? `Показать всех режиссёров (${people.length})` : `Показать весь состав (${people.length})`;
+    const toggle = node('button', 'people-toggle', expandText);
+    toggle.type = 'button';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', list.id);
+    let drawn = false;
+    toggle.addEventListener('click', () => {
+      const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+      if (expanded && !drawn) { list.append(...people.slice(initialCount).map(makePerson)); drawn = true; }
+      Array.from(list.children).slice(initialCount).forEach(entry => { entry.hidden = !expanded; });
+      toggle.setAttribute('aria-expanded', String(expanded));
+      toggle.textContent = expanded ? 'Свернуть' : expandText;
+    });
+    group.append(toggle);
+  }
+  return group;
+}
+
+async function loadCredits(data, section, sequence, signal) {
+  section.setAttribute('aria-busy', 'true');
+  const status = node('p', 'credits-status', 'Загружаем актёров и режиссёров…');
+  status.setAttribute('role', 'status');
+  section.replaceChildren(status);
+  try {
+    const { directors, cast } = await fetchCredits(data.type, data.id, { signal });
+    if (sequence !== detailSequence || signal.aborted || !section.isConnected) return;
+    section.setAttribute('aria-busy', 'false');
+    section.replaceChildren();
+    if (directors.length) section.append(expandablePeople(directors, { director: true }));
+    else section.append(node('p', 'credits-status', 'Режиссёры пока не указаны в TMDB.'));
+    const heading = node('h2', '', 'В ролях');
+    section.append(heading);
+    if (cast.length) section.append(expandablePeople(cast));
+    else section.append(node('p', 'credits-status', 'Актёрский состав пока не указан в TMDB.'));
+  } catch (error) {
+    if (sequence !== detailSequence || signal.aborted || !section.isConnected) return;
+    section.setAttribute('aria-busy', 'false');
+    const message = node('p', 'credits-status', 'Не удалось загрузить актёров и режиссёров.');
+    message.setAttribute('role', 'alert');
+    const retry = node('button', 'people-toggle', 'Повторить');
+    retry.type = 'button';
+    retry.addEventListener('click', () => loadCredits(data, section, sequence, signal));
+    section.replaceChildren(message, retry);
+  }
+}
+
 function recommendationsTitle() {
   return node('h2', '', 'Что посмотреть дальше');
 }
@@ -644,6 +725,9 @@ function renderDetail(data) {
   content.append(library);
   content.append(node('h2', '', data.type === 'tv' ? 'О сериале' : 'О фильме'));
   content.append(node('p', 'detail-overview', data.overview || 'Описание пока недоступно.'));
+  const credits = node('section', 'detail-credits');
+  credits.setAttribute('aria-label', 'Актёры и режиссёры');
+  content.append(credits);
   const trailerBox = node('div', 'trailer-box');
   trailerBox.setAttribute('aria-live', 'polite');
   content.append(trailerBox);
@@ -653,7 +737,7 @@ function renderDetail(data) {
   recommendations.hidden = true;
   els.detailContent.append(layout, recommendations);
   heading.focus({ preventScroll: true });
-  return { recommendations, trailerBox };
+  return { recommendations, trailerBox, credits };
 }
 
 function renderTrailer(data, trailerBox) {
@@ -711,7 +795,8 @@ async function showDetail() {
   try {
     const data = await fetchDetail(state.view, state.id, { signal: activeDetail.signal });
     if (sequence !== detailSequence) return;
-    const { recommendations, trailerBox } = renderDetail(data);
+    const { recommendations, trailerBox, credits } = renderDetail(data);
+    loadCredits(data, credits, sequence, activeDetail.signal);
     loadRecommendations(data, recommendations, sequence);
     loadTrailer(data, trailerBox, sequence, activeDetail.signal);
   } catch (error) {
