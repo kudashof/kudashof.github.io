@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "project": "MovieDB",
-  "updated": "2026-10-11",
+  "updated": "2026-10-12",
   "sourceOfTruth": "docs/harness/README.md",
   "productGoal": "Сократить путь от неопределённости до обоснованного выбора и облегчить возвращение к выбранному фильму или сериалу.",
   "constraints": [
@@ -75,6 +75,19 @@
       "acceptance": "not_applicable",
       "brief": "docs/harness/features/watch-providers.md",
       "evidenceRef": "docs/harness/EVIDENCE.md#PROVIDERS-001",
+      "dependsOn": []
+    },
+    {
+      "id": "CAST-001",
+      "title": "Актёры и режиссёры в карточке",
+      "priority": "now",
+      "decision": "approved",
+      "decisionScope": "implementation",
+      "implementation": "done",
+      "delivery": "branch",
+      "acceptance": "pending",
+      "brief": "docs/harness/features/cast.md",
+      "evidenceRef": "docs/harness/EVIDENCE.md#CAST-001",
       "dependsOn": []
     }
   ]

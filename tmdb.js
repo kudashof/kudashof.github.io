@@ -190,6 +190,41 @@ export async function fetchDetail(type, id, options = {}) {
   return { ...data, type, trailer: pickTrailer(data.videos?.results) };
 }
 
+export function normalizeCredits(data) {
+  const people = entries => {
+    const seen = new Set();
+    return (Array.isArray(entries) ? entries : []).filter(person => {
+      if (!Number.isSafeInteger(person?.id) || person.id <= 0 || typeof person.name !== 'string' || !person.name.trim() || seen.has(person.id)) return false;
+      seen.add(person.id);
+      return true;
+    }).map(person => ({
+      id: person.id,
+      name: person.name.trim(),
+      photo: imageUrl(person.profile_path, 'w185'),
+      photoLarge: imageUrl(person.profile_path, 'h632'),
+      character: [...new Set((Array.isArray(person.roles) ? person.roles.map(role => role?.character) : [person.character])
+        .filter(value => typeof value === 'string' && value.trim()).map(value => value.trim()))].join(', '),
+    }));
+  };
+  // Aggregate TV crew stores jobs in an array, unlike movie credits.
+  const directors = (Array.isArray(data?.crew) ? data.crew : []).filter(person =>
+    person?.job === 'Director' || (Array.isArray(person?.jobs) && person.jobs.some(job => job?.job === 'Director')));
+  const directorEpisodes = person => (Array.isArray(person.jobs) ? person.jobs : []).filter(job => job?.job === 'Director')
+    .reduce((total, job) => total + (Number.isFinite(job.episode_count) ? job.episode_count : 0), 0);
+  const cast = Array.isArray(data?.cast) ? [...data.cast] : [];
+  cast.sort((a, b) => (Number.isInteger(a?.order) ? a.order : Infinity) - (Number.isInteger(b?.order) ? b.order : Infinity));
+  directors.sort((a, b) => directorEpisodes(b) - directorEpisodes(a));
+  return { cast: people(cast), directors: people(directors) };
+}
+
+export async function fetchCredits(type, id, options = {}) {
+  if (!['movie', 'tv'].includes(type) || !Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid credits address');
+  const endpoint = type === 'tv' ? 'aggregate_credits' : 'credits';
+  const data = await apiGet(`/${type}/${id}/${endpoint}`, { language: 'ru-RU' }, options);
+  if (!Array.isArray(data?.cast) || !Array.isArray(data?.crew)) throw new Error('Invalid credits response');
+  return normalizeCredits(data);
+}
+
 // Optional fallback is independent of the detail request and its first render.
 export async function fetchTrailer(type, id, options = {}) {
   if (!['movie', 'tv'].includes(type) || !Number.isInteger(id) || id <= 0) throw new Error('Invalid trailer address');
