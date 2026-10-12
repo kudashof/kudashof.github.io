@@ -1,0 +1,79 @@
+/* Киноорбита: световой след и две встречные орбиты вокруг знака MovieDB. */
+.cinema-spinner {
+  --spinner-size: 44px;
+  --spinner-stroke: 2px;
+  --spinner-ink: #789200;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: var(--spinner-size);
+  height: var(--spinner-size);
+  flex: 0 0 var(--spinner-size);
+  border-radius: 50%;
+  isolation: isolate;
+  animation: spinner-appear .18s ease-out .12s both;
+}
+html[data-theme=dark] .cinema-spinner, [data-spinner-theme=dark] .cinema-spinner {
+  --spinner-ink: #d2ff00;
+}
+.cinema-spinner::before, .cinema-spinner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: var(--spinner-stroke) solid transparent;
+  border-top-color: var(--spinner-ink);
+  border-radius: inherit;
+  animation: spinner-orbit 1.65s linear infinite;
+}
+.cinema-spinner::after {
+  inset: 15%;
+  border-top-color: transparent;
+  border-bottom-color: var(--spinner-ink);
+  opacity: .65;
+  animation-duration: 2.4s;
+  animation-direction: reverse;
+}
+@supports (mask: radial-gradient(black, transparent)) {
+  .cinema-spinner::before, .cinema-spinner::after {
+    border: 0;
+    background: conic-gradient(from 0deg, transparent 12%, var(--spinner-ink) 78%, var(--spinner-ink) 83%, transparent 84%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--spinner-stroke)), #000 calc(100% - var(--spinner-stroke) + .5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - var(--spinner-stroke)), #000 calc(100% - var(--spinner-stroke) + .5px));
+  }
+  .cinema-spinner::after {
+    background: conic-gradient(from 180deg, transparent 40%, var(--spinner-ink) 89%, transparent 90%);
+  }
+}
+.cinema-spinner__core {
+  display: block;
+  width: 40%;
+  height: 40%;
+  border-radius: 22%;
+  box-shadow: 0 0 14px #d2ff0030;
+  animation: spinner-breathe 2.4s ease-in-out infinite;
+}
+.cinema-spinner--large { --spinner-size: 96px; --spinner-stroke: 3px; }
+.catalog-status { display: flex; align-items: center; gap: 12px; min-height: 52px; }
+.detail-loading, .recommendations-status { display: flex; align-items: center; gap: 14px; }
+.detail-loading {
+  min-height: 280px;
+  justify-content: center;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 14px;
+}
+.loading-notice { margin: 10px 0 18px; padding: 14px 16px; border: 1px solid var(--border, #636368); border-left: 3px solid #9dbf00; border-radius: 4px; color: var(--fg, inherit); max-width: 650px; }
+.loading-notice[hidden] { display: none; }
+.loading-notice p { margin: 0 0 10px; font-size: 14px; line-height: 1.6; }
+.loading-notice button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--border, #636368); border-radius: 4px; background: var(--soft, #202023); color: var(--fg, inherit); font: inherit; cursor: pointer; }
+@keyframes spinner-orbit { to { transform: rotate(360deg); } }
+@keyframes spinner-breathe {
+  0%, 100% { transform: scale(.94); opacity: .82; }
+  50% { transform: scale(1); opacity: 1; }
+}
+@keyframes spinner-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .cinema-spinner, .cinema-spinner::before, .cinema-spinner::after, .cinema-spinner__core {
+    animation: none;
+  }
+}

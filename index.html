@@ -18,6 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
   <link rel="stylesheet" href="main.css?v=20261012cast2">
+  <link rel="stylesheet" href="spinner.css?v=20261012spinner3">
   <script>
     try {
       const choice = localStorage.getItem('movie-theme') || 'system';
@@ -32,7 +33,7 @@
   <link rel="modulepreload" href="library.js?v=20261007perf2">
   <link rel="modulepreload" href="share.js?v=20261007perf2">
   <link rel="modulepreload" href="editorial.js?v=20261007perf2">
-  <script type="module" src="fetchscript.js?v=20261012cast1"></script>
+  <script type="module" src="fetchscript.js?v=20261012spinner3"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">К содержанию</a>
@@ -128,6 +129,7 @@
           <div id="catalog-share" class="catalog-share"></div>
           <div id="editorial-intro" hidden></div>
           <p id="catalog-status" class="catalog-status" role="status" aria-live="polite"></p>
+          <div id="catalog-notice"></div>
           <div id="catalog-error" class="catalog-error" hidden><p id="catalog-error-text"></p><button type="button" id="retry-catalog">Повторить запрос</button></div>
           <div id="movie-grid" class="grid" aria-busy="false"></div>
           <div id="catalog-empty" class="empty" hidden><h3 id="empty-title">Ничего не найдено</h3><p id="empty-copy">Попробуйте изменить запрос или параметры.</p></div>
