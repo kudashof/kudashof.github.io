@@ -488,6 +488,7 @@ function switchRoute(next, { replace = false, scrollTop = true, scrollCatalog = 
   root.dataset.route = 'list';
   els.list.hidden = false;
   els.detail.hidden = true;
+  els.detailContent.replaceChildren();
   renderControls();
   if (scrollTop) window.scrollTo(0, 0);
   else if (scrollCatalog) els.title.scrollIntoView({ block: 'start' });
@@ -738,6 +739,7 @@ function restoreList(scrollPosition = 0) {
   root.dataset.route = 'list';
   els.list.hidden = false;
   els.detail.hidden = true;
+  els.detailContent.replaceChildren();
   renderControls();
   loadCatalog({ animate: false });
   requestAnimationFrame(() => {
