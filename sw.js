@@ -1,8 +1,8 @@
-const CACHE_NAME = 'movie-db-shell-v13';
+const CACHE_NAME = 'movie-db-shell-v14';
 const APP_SHELL = [
   './',
   './index.html',
-  './main.css?v=20261007perf2',
+  './main.css?v=20261012theme1',
   './fetchscript.js?v=20261012trailer1',
   './state.js?v=20261007perf2',
   './tmdb.js?v=20261007perf2',
