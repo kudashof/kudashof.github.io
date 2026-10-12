@@ -3,6 +3,8 @@ import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './st
 import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007perf2';
 import { buildSharePayload, shareLink } from './share.js?v=20261007perf2';
 import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007perf2';
+import { setLoadingStatus, startLoadingNotice } from './spinner.js?v=20261012spinner3';
+import { installPosterFallback, waitForPosters } from './poster-readiness.js?v=20261012spinner3';
 
 const root = document.documentElement;
 root.dataset.ratingDesign = 'ring';
@@ -40,6 +42,7 @@ const els = {
   title: document.querySelector('#catalog-title'),
   catalogShare: document.querySelector('#catalog-share'),
   status: document.querySelector('#catalog-status'),
+  notice: document.querySelector('#catalog-notice'),
   grid: document.querySelector('#movie-grid'),
   empty: document.querySelector('#catalog-empty'),
   emptyTitle: document.querySelector('#empty-title'),
@@ -354,6 +357,22 @@ function scoreBadge(value, votes, { onPoster = false } = {}) {
   return badge;
 }
 
+function firstRowCount() {
+  return matchMedia('(max-width:335px)').matches ? 1 : matchMedia('(max-width:760px)').matches ? 2 : matchMedia('(max-width:900px)').matches ? 4 : 6;
+}
+
+function firstScreenPosters(cards, grid) {
+  const columns = firstRowCount();
+  const top = grid.getBoundingClientRect().top;
+  const gap = Number.parseFloat(getComputedStyle(grid).columnGap) || 18;
+  const cardWidth = (grid.clientWidth - (columns - 1) * gap) / columns;
+  const rowHeight = cardWidth * 257 / 179 + 110;
+  const firstVisibleRow = Math.max(0, Math.floor(-top / rowHeight));
+  const lastVisibleRow = Math.max(1, Math.ceil((innerHeight - top) / rowHeight));
+  return cards.filter((_card, index) => index < columns || (index >= firstVisibleRow * columns && index < lastVisibleRow * columns))
+    .map(card => card.querySelector('.poster img'));
+}
+
 function makeCard(item, index, { numbered = true, recommendation = false } = {}) {
   const href = stateUrl({ ...listState(state), view: item.type, id: item.id }, location.href);
   const card = node('a', recommendation ? 'card recommendation-card' : 'card');
@@ -368,18 +387,13 @@ function makeCard(item, index, { numbered = true, recommendation = false } = {})
   image.alt = '';
   image.width = 342;
   image.height = 513;
-  const firstRow = matchMedia('(max-width:335px)').matches ? 1 : matchMedia('(max-width:760px)').matches ? 2 : matchMedia('(max-width:900px)').matches ? 4 : 6;
+  const firstRow = firstRowCount();
   image.loading = !recommendation && index < firstRow ? 'eager' : 'lazy';
   image.fetchPriority = !recommendation && index < firstRow ? 'high' : 'low';
   image.decoding = 'async';
   image.srcset = posterSrcset(item.poster);
   image.sizes = '(max-width:335px) calc(100vw - 36px), (max-width:760px) calc(50vw - 25px), (max-width:900px) calc(25vw - 27.5px), (max-width:1480px) calc(16.667vw - 24.333px), 223px';
-  image.addEventListener('error', () => {
-    image.onerror = null;
-    image.removeAttribute('srcset');
-    image.src = 'img/noposter.jpg';
-    image.classList.add('is-placeholder');
-  }, { once: true });
+  installPosterFallback(image);
   poster.append(image);
   poster.append(scoreBadge(item.rating, item.votes, { onPoster: true }));
   card.append(poster);
@@ -402,9 +416,9 @@ function makeCard(item, index, { numbered = true, recommendation = false } = {})
   return card;
 }
 
-function renderCatalog(result, animate = true) {
+function renderCatalog(result, animate = true, cards = result.items.map(makeCard)) {
   els.grid.classList.toggle('no-motion', !animate);
-  els.grid.replaceChildren(...result.items.map(makeCard));
+  els.grid.replaceChildren(...cards);
   els.empty.hidden = result.items.length > 0;
   if (!result.items.length) {
     els.emptyTitle.textContent = state.mode === 'search' ? 'Ничего не найдено' : state.mode === 'lists' ? 'В списке пока нет фильмов' : state.mode === 'my' ? `В «${LIBRARY_SECTIONS[state.library].label}» пока пусто` : 'Подборка пуста';
@@ -425,11 +439,12 @@ function renderCatalog(result, animate = true) {
 }
 
 async function loadCatalog({ animate = true, force = false } = {}) {
+  activeCatalog?.abort();
+  activeCatalog = new AbortController();
+  const controller = activeCatalog;
+  const sequence = ++catalogSequence;
   const key = catalogKey(state);
-  if (!force && catalogCache.has(key)) {
-    renderCatalog(catalogCache.get(key), animate);
-    return;
-  }
+  els.notice.replaceChildren();
   if (state.mode === 'search' && !state.q) {
     els.grid.replaceChildren();
     els.empty.hidden = false;
@@ -437,33 +452,36 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     els.pages.hidden = true;
     els.error.hidden = true;
     els.status.textContent = '';
+    els.grid.setAttribute('aria-busy', 'false');
+    els.grid.classList.remove('updating');
     return;
   }
-  if (state.mode === 'my') {
-    const result = { items: libraryItems(state.library), page: 1, totalPages: 1 };
-    catalogCache.set(key, result);
-    renderCatalog(result, animate);
-    return;
-  }
-  activeCatalog?.abort();
-  activeCatalog = new AbortController();
-  const sequence = ++catalogSequence;
   els.grid.setAttribute('aria-busy', 'true');
   els.grid.classList.add('updating');
   els.empty.hidden = true;
   els.error.hidden = true;
   const updateLabel = state.mode === 'lists' ? 'Обновляем список' : state.mode === 'search' ? 'Обновляем результаты поиска' : 'Обновляем подборку';
-  els.status.textContent = els.grid.children.length ? `${updateLabel}; пока показаны прежние результаты…` : 'Загружаем результаты…';
+  setLoadingStatus(els.status, els.grid.children.length ? `${updateLabel}; пока показаны прежние результаты…` : 'Загружаем результаты…');
+  const notice = startLoadingNotice(els.notice, { signal: controller.signal, onRetry: () => loadCatalog({ force: true }) });
   try {
     const collection = state.mode === 'lists' && editorialCollection(state.list);
     const genreTypes = state.mode === 'search' ? ['movie', 'tv']
       : [state.mode === 'lists' ? (READY_LISTS[state.list] || READY_LISTS['trending-movie']).type : state.pickType];
-    genreTypes.forEach(ensureGenres);
-    const result = await (collection ? fetchEditorial(collection, { getMedia: fetchMedia, signal: activeCatalog.signal }) : fetchCatalog(state, { signal: activeCatalog.signal }));
+    let result = !force && catalogCache.get(key);
+    if (state.mode === 'my') result = { items: libraryItems(state.library), page: 1, totalPages: 1 };
+    if (!result) {
+      genreTypes.forEach(ensureGenres);
+      result = await (collection ? fetchEditorial(collection, { getMedia: fetchMedia, signal: controller.signal }) : fetchCatalog(state, { signal: controller.signal }));
+    }
     if (sequence !== catalogSequence) return;
     if (state.mode === 'pick') orderGenresByPopularity(state.pickType, result.items);
     catalogCache.set(key, result);
-    renderCatalog(result, animate);
+    const cards = result.items.map(makeCard);
+    if (cards.length) setLoadingStatus(els.status, 'Загружаем постеры…');
+    const posters = await waitForPosters(firstScreenPosters(cards, els.grid), { signal: controller.signal });
+    if (sequence !== catalogSequence || controller.signal.aborted) return;
+    renderCatalog(result, animate, cards);
+    notice.finish({ failed: posters.failed > 0 });
   } catch (error) {
     if (sequence !== catalogSequence || error?.name === 'AbortError') return;
     els.grid.setAttribute('aria-busy', 'false');
@@ -472,6 +490,7 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     els.errorText.textContent = 'Не удалось получить данные TMDB. Проверь соединение и попробуй ещё раз.';
     els.status.textContent = els.grid.children.length ? 'Показаны прежние результаты' : '';
     if (!els.grid.children.length) els.pages.hidden = true;
+    notice.finish({ failed: true, retryAvailable: false });
   }
 }
 
@@ -590,14 +609,15 @@ function renderRecommendationsLoading(section) {
   section.setAttribute('aria-busy', 'true');
   const status = node('p', 'recommendations-status', 'Подбираем похожие варианты…');
   status.setAttribute('role', 'status');
+  setLoadingStatus(status, 'Подбираем похожие варианты…');
   section.replaceChildren(recommendationsTitle(), status);
 }
 
-function renderRecommendations(section, items) {
+function renderRecommendations(section, items, cards) {
   section.hidden = false;
   section.setAttribute('aria-busy', 'false');
   const grid = node('div', 'grid recommendations-grid');
-  grid.replaceChildren(...items.map((item, index) => makeCard(item, index, { numbered: false, recommendation: true })));
+  grid.replaceChildren(...cards);
   section.replaceChildren(recommendationsTitle(), grid);
 }
 
@@ -617,28 +637,33 @@ function renderRecommendationsError(section, data, detailRequestSequence) {
 async function loadRecommendations(data, section, detailRequestSequence) {
   activeRecommendations?.abort();
   activeRecommendations = new AbortController();
+  const controller = activeRecommendations;
   const sequence = ++recommendationsSequence;
   renderRecommendationsLoading(section);
+  const notice = startLoadingNotice(section, { signal: controller.signal, onRetry: () => loadRecommendations(data, section, detailRequestSequence) });
   try {
-    const items = (await fetchRecommendations(data.type, data.id, { signal: activeRecommendations.signal })).slice(0, 6);
+    const items = (await fetchRecommendations(data.type, data.id, { signal: controller.signal })).slice(0, 6);
     if (detailRequestSequence !== detailSequence || sequence !== recommendationsSequence || !section.isConnected) return;
     if (!items.length) {
       section.hidden = true;
       section.setAttribute('aria-busy', 'false');
+      notice.finish();
       return;
     }
-    renderRecommendations(section, items);
+    const cards = items.map((item, index) => makeCard(item, index, { numbered: false, recommendation: true }));
+    const posters = await waitForPosters(firstScreenPosters(cards, section), { signal: controller.signal });
+    if (detailRequestSequence !== detailSequence || sequence !== recommendationsSequence || controller.signal.aborted || !section.isConnected) return;
+    renderRecommendations(section, items, cards);
+    notice.finish({ failed: posters.failed > 0 });
+    if (posters.failed) section.insertBefore(notice.element, section.querySelector('.grid'));
   } catch (error) {
     if (detailRequestSequence !== detailSequence || sequence !== recommendationsSequence || error?.name === 'AbortError' || !section.isConnected) return;
     renderRecommendationsError(section, data, detailRequestSequence);
+    notice.finish({ failed: true, retryAvailable: false });
   }
 }
 
-function renderDetail(data) {
-  els.detailContent.replaceChildren();
-  const title = data.title || data.name || 'Без названия';
-  setPageMeta(`${title} — Что посмотреть`, data.overview?.trim().slice(0, 155) || `Сведения о ${data.type === 'tv' ? 'сериале' : 'фильме'} ${title} по данным TMDB.`);
-  const layout = node('div', 'detail-layout');
+function makeDetailPoster(data) {
   const poster = node('img', 'detail-poster' + (data.poster_path ? '' : ' is-placeholder'));
   poster.src = imageUrl(data.poster_path, 'w500') || 'img/noposter.jpg';
   poster.srcset = posterSrcset(poster.src);
@@ -648,7 +673,15 @@ function renderDetail(data) {
   poster.alt = '';
   poster.width = 500;
   poster.height = 750;
-  poster.addEventListener('error', () => { poster.removeAttribute('srcset'); poster.src = 'img/noposter.jpg'; poster.classList.add('is-placeholder'); }, { once: true });
+  installPosterFallback(poster);
+  return poster;
+}
+
+function renderDetail(data, poster = makeDetailPoster(data)) {
+  els.detailContent.replaceChildren();
+  const title = data.title || data.name || 'Без названия';
+  setPageMeta(`${title} — Что посмотреть`, data.overview?.trim().slice(0, 155) || `Сведения о ${data.type === 'tv' ? 'сериале' : 'фильме'} ${title} по данным TMDB.`);
+  const layout = node('div', 'detail-layout');
   layout.append(poster);
   const content = node('div');
   const date = data.type === 'movie' ? data.release_date : data.first_air_date;
@@ -784,21 +817,30 @@ async function showDetail() {
   activeRecommendations?.abort();
   recommendationsSequence++;
   activeDetail = new AbortController();
+  const controller = activeDetail;
   const sequence = ++detailSequence;
   root.dataset.route = 'detail';
   els.list.hidden = true;
   els.detail.hidden = false;
   els.back.href = stateUrl(listState(state), location.href).pathname + stateUrl(listState(state), location.href).search;
-  const loading = node('p', 'detail-kicker', 'Загружаем сведения…');
+  const loading = node('div', 'detail-loading');
   loading.setAttribute('role', 'status');
+  setLoadingStatus(loading, 'Загружаем сведения…', { large: true });
   els.detailContent.replaceChildren(loading);
+  const notice = startLoadingNotice(els.detailContent, { signal: controller.signal, onRetry: showDetail });
   try {
-    const data = await fetchDetail(state.view, state.id, { signal: activeDetail.signal });
+    const data = await fetchDetail(state.view, state.id, { signal: controller.signal });
     if (sequence !== detailSequence) return;
-    const { recommendations, trailerBox, credits } = renderDetail(data);
-    loadCredits(data, credits, sequence, activeDetail.signal);
+    const poster = makeDetailPoster(data);
+    setLoadingStatus(loading, 'Загружаем постер…', { large: true });
+    const posters = await waitForPosters([poster], { signal: controller.signal });
+    if (sequence !== detailSequence || controller.signal.aborted) return;
+    const { recommendations, trailerBox, credits } = renderDetail(data, poster);
+    notice.finish({ failed: posters.failed > 0 });
+    if (posters.failed) els.detailContent.prepend(notice.element);
+    loadCredits(data, credits, sequence, controller.signal);
     loadRecommendations(data, recommendations, sequence);
-    loadTrailer(data, trailerBox, sequence, activeDetail.signal);
+    loadTrailer(data, trailerBox, sequence, controller.signal);
   } catch (error) {
     if (sequence !== detailSequence || error?.name === 'AbortError') return;
     const box = node('div', 'detail-error');
@@ -810,6 +852,7 @@ async function showDetail() {
     retry.addEventListener('click', showDetail);
     box.append(retry);
     els.detailContent.replaceChildren(box);
+    notice.finish({ failed: true, retryAvailable: false });
   }
 }
 
@@ -826,13 +869,15 @@ function restoreList(scrollPosition = 0) {
   els.detail.hidden = true;
   els.detailContent.replaceChildren();
   renderControls();
-  loadCatalog({ animate: false });
-  requestAnimationFrame(() => {
-    window.scrollTo(0, scrollPosition);
-    if (returnFocus) {
-      const card = els.grid.querySelector('[data-type="' + returnFocus.type + '"][data-id="' + returnFocus.id + '"]');
+  const target = returnFocus;
+  returnFocus = null;
+  window.scrollTo(0, scrollPosition);
+  const ready = loadCatalog({ animate: false });
+  const sequence = catalogSequence;
+  ready.then(() => {
+    if (target && sequence === catalogSequence && root.dataset.route === 'list') {
+      const card = els.grid.querySelector('[data-type="' + target.type + '"][data-id="' + target.id + '"]');
       card?.focus({ preventScroll: true });
-      returnFocus = null;
     }
   });
 }

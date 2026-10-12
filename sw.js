@@ -1,9 +1,12 @@
-const CACHE_NAME = 'movie-db-shell-v16';
+const CACHE_NAME = 'movie-db-shell-v18';
 const APP_SHELL = [
   './',
   './index.html',
   './main.css?v=20261012cast2',
-  './fetchscript.js?v=20261012cast1',
+  './fetchscript.js?v=20261012spinner3',
+  './spinner.js?v=20261012spinner3',
+  './spinner.css?v=20261012spinner3',
+  './poster-readiness.js?v=20261012spinner3',
   './state.js?v=20261007perf2',
   './tmdb.js?v=20261012cast1',
   './tmdb-config.js',
@@ -17,6 +20,7 @@ const APP_SHELL = [
   './assets/hero.jpg',
   './assets/pwa-icon-192.png',
   './assets/pwa-icon-512.png',
+  './assets/pwa-icon.svg',
   './assets/tmdb-logo.svg',
   './assets/icons/arrow-left.svg',
   './assets/icons/arrow-right.svg',

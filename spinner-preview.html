@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Киноорбита — спиннер MovieDB</title>
+  <link rel="stylesheet" href="spinner.css?v=20261012spinner3">
+  <style>
+    :root { font-family: Inter, Arial, sans-serif; --bg:#0c0c0c; --fg:#f8f8f5; --muted:#a6a6ab; --soft:#161618; --border:#333337; color-scheme:dark; background:var(--bg); color:var(--fg); }
+    :root[data-theme=light] { --bg:#f6f6f4; --fg:#0a0a0a; --muted:#636368; --soft:#ebebeb; --border:#b8b9be; color-scheme:light; }
+    * { box-sizing:border-box; } body { margin:0; } button, select, input { font:inherit; } button, select { cursor:pointer; }
+    button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline:3px solid #809c00; outline-offset:5px; }
+    .wrap { max-width:1280px; padding:0 36px; margin:auto; }
+    header { display:flex; align-items:center; gap:24px; min-height:90px; border-bottom:1px solid var(--border); }
+    .brand { font-weight:900; font-size:24px; letter-spacing:-1px; } .tag { color:var(--muted); font-size:12px; }
+    .controls { display:flex; gap:20px; align-items:center; margin-left:auto; font-size:13px; } select { padding:8px; color:var(--fg); border:1px solid var(--border); background:var(--bg); border-radius:4px; }
+    .motion { display:flex; align-items:center; gap:8px; } input { accent-color:#d2ff00; width:16px; height:16px; }
+    .intro { padding:48px 0 30px; display:flex; justify-content:space-between; gap:24px; align-items:flex-end; }
+    .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:2px; color:var(--muted); margin:0 0 16px; }
+    h1 { font-size:clamp(34px,5.4vw,68px); letter-spacing:-3px; line-height:1; margin:0; font-weight:900; } h1 span { display:block; }
+    .intro p:last-child { max-width:300px; color:var(--muted); font-size:14px; line-height:1.65; margin:0; }
+    .showcase { display:grid; grid-template-columns:1.15fr 1fr; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+    .stage { position:relative; display:flex; align-items:center; flex-direction:column; justify-content:center; min-height:350px; overflow:hidden; }
+    .stage .cinema-spinner { --spinner-size:154px; margin:30px 0; }
+    .stage-label { color:var(--muted); font-size:11px; letter-spacing:2px; text-transform:uppercase; }
+    .stage p { margin:6px 0 20px; font-weight:600; font-size:15px; }
+    .context { padding:32px 0 32px 36px; border-left:1px solid var(--border); min-width:0; display:flex; flex-direction:column; justify-content:center; }
+    .context h2 { font-size:24px; letter-spacing:-.8px; margin:0 0 8px; } .context>p { color:var(--muted); font-size:13px; line-height:1.6; margin:0 0 20px; }
+    .request-status { min-height:72px; display:flex; align-items:center; gap:14px; font-size:14px; line-height:1.5; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin:0 0 24px; color:var(--muted); }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; } button { min-height:44px; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--fg); padding:10px 16px; font-size:13px; }
+    button.primary { background:#d2ff00; color:#0a0a0a; border-color:#d2ff00; font-weight:700; } button:disabled { opacity:.5; cursor:default; }
+    .foot { display:flex; gap:24px; padding:22px 0; align-items:flex-start; justify-content:space-between; }
+    .foot p { color:var(--muted); font-size:12px; line-height:1.7; max-width:380px; margin:0; } .refs { font-size:12px; color:var(--muted); line-height:1.8; } a { color:var(--fg); text-underline-offset:4px; }
+    .sample { display:flex; gap:10px; align-items:center; } .sample .cinema-spinner { --spinner-size:28px; }
+    html[data-preview-motion=off] .cinema-spinner, html[data-preview-motion=off] .cinema-spinner::before, html[data-preview-motion=off] .cinema-spinner::after, html[data-preview-motion=off] .cinema-spinner__core { animation:none; }
+    @media(max-width:760px) {
+      .wrap { padding:0 20px; } header { flex-wrap:wrap; gap:12px; padding:18px 0; } .tag { margin-left:auto; } .controls { width:100%; margin:0; justify-content:space-between; }
+      .intro { display:block; padding:30px 0 24px; } h1 { letter-spacing:-1.6px; font-size:clamp(32px,8.5vw,58px); } .intro p:last-child { max-width:100%; margin-top:18px; }
+      .showcase { grid-template-columns:1fr; } .stage { min-height:280px; } .stage .cinema-spinner { --spinner-size:124px; margin:24px 0; }
+      .context { padding:24px 0; border-left:0; border-top:1px solid var(--border); } .foot { flex-wrap:wrap; } .foot>div { width:100%; } .context h2 { font-size:22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><div class="brand">MOVIE DB</div><span class="tag">КИНООРБИТА / 01</span><div class="controls"><label>Тема <select id="theme"><option value="dark">Тёмная</option><option value="light">Светлая</option></select></label><label class="motion"><input type="checkbox" id="motion" checked> Анимация</label></div></header>
+    <main>
+      <section class="intro"><div><p class="eyebrow">Загрузка с характером MovieDB</p><h1><span>СЛЕДУЮЩИЙ КАДР.</span><span>УЖЕ БЛИЗКО.</span></h1></div><p>Встречные орбиты, световой след и мягкий пульс кинознака. Один характер — для большого экрана и компактного статуса.</p></section>
+      <div class="showcase">
+        <section class="stage" aria-label="Большой спиннер"><span class="stage-label">Подробности фильма</span><div id="large-spinner"></div><p>Загружаем сведения…</p></section>
+        <section class="context"><p class="eyebrow">Попробуй в действии</p><h2>Идеи для просмотра</h2><p>Спиннер ждёт данные и постеры первого экрана. При обновлении прежние карточки остаются доступны.</p><p id="request-status" class="request-status" role="status" aria-live="polite">Готов к следующему запросу.</p><div id="demo-notice"></div><div class="actions"><button class="primary" id="load" type="button">Проверить загрузку →</button><button id="fail" type="button">Проверить ошибку</button><button id="slow" type="button">Медленная загрузка · 10 с</button></div></section>
+      </div>
+    </main>
+    <footer class="foot"><div class="sample"><span id="small-spinner"></span><p>Компактный размер<br>Мягкое движение, знакомый знак</p></div><p>Демо имитирует обычную загрузку за 2 секунды и медленную за 10. Через 8 секунд появляется подсказка про VPN. На сайте ожидание постеров ограничено 12 секундами.</p><div class="refs">Референсы движения<br><a href="https://dribbble.com/shots/27360268-Cyberpunk-Style-Loading-Indicator-Rive-Animation" target="_blank" rel="noreferrer">Dribbble · световой след</a><br><a href="https://www.behance.net/gallery/66879333/Loader-Animation" target="_blank" rel="noreferrer">Behance · брендовая анимация</a></div></footer>
+  </div>
+  <script type="module">
+    import { makeSpinner, setLoadingStatus, startLoadingNotice } from './spinner.js?v=20261012spinner3';
+    const root = document.documentElement;
+    document.querySelector('#large-spinner').append(makeSpinner({ large:true }));
+    document.querySelector('#small-spinner').append(makeSpinner());
+    document.querySelector('#theme').addEventListener('change', e => { root.dataset.theme = e.target.value; });
+    document.querySelector('#motion').addEventListener('change', e => { root.dataset.previewMotion = e.target.checked ? 'on' : 'off'; });
+    const status = document.querySelector('#request-status');
+    const load = document.querySelector('#load');
+    const fail = document.querySelector('#fail');
+    const slow = document.querySelector('#slow');
+    const noticeHost = document.querySelector('#demo-notice');
+    let controller;
+    let timer;
+    function run(shouldFail, duration = 2000) {
+      controller?.abort();
+      clearTimeout(timer);
+      controller = new AbortController();
+      noticeHost.replaceChildren();
+      load.disabled = fail.disabled = slow.disabled = true;
+      setLoadingStatus(status, 'Загружаем постеры; прежние карточки доступны…');
+      const notice = startLoadingNotice(noticeHost, { signal:controller.signal, onRetry:() => run(false) });
+      timer = setTimeout(() => {
+        status.textContent = shouldFail ? 'Не удалось получить данные. Повтори запрос.' : 'Подборка обновлена. Можно выбирать кино.';
+        load.textContent = shouldFail ? 'Повторить запрос →' : 'Проверить загрузку →';
+        load.disabled = fail.disabled = slow.disabled = false;
+        notice.finish({ failed:shouldFail });
+      }, duration);
+    }
+    load.addEventListener('click', () => run(false));
+    fail.addEventListener('click', () => run(true));
+    slow.addEventListener('click', () => run(false, 10000));
+  </script>
+</body>
+</html>
