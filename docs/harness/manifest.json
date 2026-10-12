@@ -89,6 +89,19 @@
       "brief": "docs/harness/features/cast.md",
       "evidenceRef": "docs/harness/EVIDENCE.md#CAST-001",
       "dependsOn": []
+    },
+    {
+      "id": "PEOPLE-001",
+      "title": "Люди кино, живой поиск и подробности карточки",
+      "priority": "now",
+      "decision": "approved",
+      "decisionScope": "implementation",
+      "implementation": "done",
+      "delivery": "branch",
+      "acceptance": "pending",
+      "brief": "docs/harness/features/people-search-and-detail.md",
+      "evidenceRef": "docs/harness/EVIDENCE.md#PEOPLE-001",
+      "dependsOn": ["CAST-001"]
     }
   ]
 }
