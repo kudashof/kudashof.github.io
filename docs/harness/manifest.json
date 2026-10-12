@@ -84,7 +84,7 @@
       "decision": "approved",
       "decisionScope": "implementation",
       "implementation": "done",
-      "delivery": "branch",
+      "delivery": "public_verified",
       "acceptance": "pending",
       "brief": "docs/harness/features/cast.md",
       "evidenceRef": "docs/harness/EVIDENCE.md#CAST-001",
