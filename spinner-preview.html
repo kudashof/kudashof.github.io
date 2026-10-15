@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Киноорбита — спиннер MovieDB</title>
-  <link rel="stylesheet" href="spinner.css?v=20261012spinner6">
+  <link rel="stylesheet" href="spinner.css?v=20261012spinner7">
   <style>
     :root { font-family: Inter, Arial, sans-serif; --bg:#0c0c0c; --fg:#f8f8f5; --muted:#a6a6ab; --soft:#161618; --border:#333337; color-scheme:dark; background:var(--bg); color:var(--fg); }
     :root[data-theme=light] { --bg:#f6f6f4; --fg:#0a0a0a; --muted:#636368; --soft:#ebebeb; --border:#b8b9be; color-scheme:light; }
@@ -54,7 +54,7 @@
     <footer class="foot"><div class="sample"><span id="small-spinner"></span><p>Компактный размер<br>Мягкое движение, знакомый знак</p></div><p>Демо имитирует обычную загрузку за 2 секунды и медленную за 10. Через 8 секунд появляется подсказка про VPN. На сайте ожидание постеров ограничено 12 секундами.</p><div class="refs">Референсы движения<br><a href="https://dribbble.com/shots/27360268-Cyberpunk-Style-Loading-Indicator-Rive-Animation" target="_blank" rel="noreferrer">Dribbble · световой след</a><br><a href="https://www.behance.net/gallery/66879333/Loader-Animation" target="_blank" rel="noreferrer">Behance · брендовая анимация</a></div></footer>
   </div>
   <script type="module">
-    import { makeSpinner, setLoadingStatus, startLoadingNotice } from './spinner.js?v=20261012spinner6';
+    import { makeSpinner, setLoadingStatus, startLoadingNotice } from './spinner.js?v=20261012spinner7';
     const root = document.documentElement;
     document.querySelector('#large-spinner').append(makeSpinner({ large:true }));
     document.querySelector('#small-spinner').append(makeSpinner());

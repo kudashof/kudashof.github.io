@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
   <link rel="stylesheet" href="main.css?v=20261012cast2">
-  <link rel="stylesheet" href="spinner.css?v=20261012spinner6">
+  <link rel="stylesheet" href="spinner.css?v=20261012spinner7">
   <style>
     html.startup-active { overflow: hidden; }
     #startup-overlay { display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center; min-height: 100vh; background: #f6f6f4; color: #0a0a0a; }
@@ -40,7 +40,7 @@
   <link rel="modulepreload" href="library.js?v=20261007perf2">
   <link rel="modulepreload" href="share.js?v=20261007perf2">
   <link rel="modulepreload" href="editorial.js?v=20261007perf2">
-  <script type="module" src="fetchscript.js?v=20261012spinner6"></script>
+  <script type="module" src="fetchscript.js?v=20261012spinner7"></script>
 </head>
 <body>
   <div id="startup-overlay" class="startup-overlay" role="status" aria-live="polite" aria-label="Загрузка сайта">
@@ -66,6 +66,7 @@
       let hasFrame = false;
       let ready = false;
       let closed = false;
+      let minimumVisibleMs = 3000;
       let retryHandler = () => location.reload();
       let timeoutHandler = null;
       let hintTimer;
@@ -124,7 +125,7 @@
         clearTimers();
         if (closed || visibleSince === null) return;
         if (ready) {
-          releaseTimer = setTimeout(close, Math.max(0, 3000 - elapsed(visibleMs)));
+          releaseTimer = setTimeout(close, Math.max(0, minimumVisibleMs - elapsed(visibleMs)));
           return;
         }
         if (elapsed(attemptMs) >= 8000) showHint();
@@ -158,7 +159,12 @@
         setStatus: text => { if (!closed) status.textContent = text; },
         setRetryHandler: handler => { retryHandler = handler; },
         setTimeoutHandler: handler => { timeoutHandler = handler; },
-        finish: () => { if (closed) return; ready = true; schedule(); },
+        finish: ({ postersReady = false } = {}) => {
+          if (closed) return;
+          minimumVisibleMs = postersReady ? 2400 : 3000;
+          ready = true;
+          schedule();
+        },
       };
       retryButton.addEventListener('click', () => {
         pause();

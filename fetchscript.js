@@ -3,8 +3,8 @@ import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './st
 import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007perf2';
 import { buildSharePayload, shareLink } from './share.js?v=20261007perf2';
 import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007perf2';
-import { setLoadingStatus, startLoadingNotice } from './spinner.js?v=20261012spinner6';
-import { installPosterFallback, setPosterFallback, waitForPosters } from './poster-readiness.js?v=20261012spinner6';
+import { setLoadingStatus, startLoadingNotice } from './spinner.js?v=20261012spinner7';
+import { FALLBACK_POSTER, installPosterFallback, setPosterFallback, waitForPosters } from './poster-readiness.js?v=20261012spinner7';
 
 const root = document.documentElement;
 const startup = window.movieStartup;
@@ -376,6 +376,11 @@ function firstScreenPosters(cards, grid) {
     .map(card => card.querySelector('.poster img'));
 }
 
+function realPostersReady(images, result) {
+  return images.length > 0 && !result.failed && !result.timedOut
+    && images.every(image => image.dataset.posterReady === 'true' && image.getAttribute('src') !== FALLBACK_POSTER);
+}
+
 function waitForHero(signal) {
   const image = els.list.querySelector('.hero-image img');
   if (!image || signal?.aborted) return Promise.resolve();
@@ -523,13 +528,14 @@ async function loadCatalog({ animate = true, force = false } = {}) {
       setLoadingStatus(els.status, 'Загружаем постеры…');
       startup?.setStatus('Загружаем постеры первого экрана…');
     }
-    const posters = await waitForPosters(firstScreenPosters(cards, els.grid), posterWaitOptions(controller.signal));
+    const firstPosters = firstScreenPosters(cards, els.grid);
+    const posters = await waitForPosters(firstPosters, posterWaitOptions(controller.signal));
     if (startup?.isActive()) await waitForHero(controller.signal);
     if (sequence !== catalogSequence || controller.signal.aborted) return;
     renderCatalog(result, animate, cards);
     stagedCatalog = null;
     notice.finish({ failed: posters.failed > 0 });
-    startup?.finish();
+    startup?.finish({ postersReady: realPostersReady(firstPosters, posters) });
   } catch (error) {
     if (sequence !== catalogSequence || error?.name === 'AbortError') return;
     stagedCatalog = null;
@@ -893,7 +899,7 @@ async function showDetail() {
     stagedDetail = null;
     notice.finish({ failed: posters.failed > 0 });
     if (posters.failed) els.detailContent.prepend(notice.element);
-    startup?.finish();
+    startup?.finish({ postersReady: realPostersReady([poster], posters) });
     loadCredits(data, credits, sequence, controller.signal);
     loadRecommendations(data, recommendations, sequence);
     loadTrailer(data, trailerBox, sequence, controller.signal);
