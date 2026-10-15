@@ -1,5 +1,6 @@
-import { fetchCatalog, fetchCredits, fetchDetail, fetchGenres, fetchMedia, fetchRecommendations, fetchTrailer, formatRating, imageUrl, posterSrcset, READY_LISTS } from './tmdb.js?v=20261012cast1';
-import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261007perf2';
+import { fetchCatalog, fetchCredits, fetchDetail, fetchGenres, fetchMedia, fetchPerson, fetchRecommendations, fetchTrailer, formatRating, imageUrl, personWorks, posterSrcset, READY_LISTS } from './tmdb.js?v=20261012people4';
+import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261012people4';
+import { detailFacts, detailMore } from './detail-metadata.js?v=20261012people4';
 import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007perf2';
 import { buildSharePayload, shareLink } from './share.js?v=20261007perf2';
 import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007perf2';
@@ -20,6 +21,9 @@ const els = {
   themeIcon: document.querySelector('.theme-icon'),
   searchForm: document.querySelector('#search-form'),
   searchInput: document.querySelector('#search-query'),
+  searchLabel: document.querySelector('#search-label'),
+  suggestions: document.querySelector('#search-suggestions'),
+  searchAnnouncement: document.querySelector('#search-announcement'),
   pickControls: document.querySelector('#pick-controls'),
   searchControls: document.querySelector('#search-controls'),
   listsControls: document.querySelector('#lists-controls'),
@@ -58,6 +62,9 @@ const els = {
   list: document.querySelector('#list-view'),
   detail: document.querySelector('#detail-view'),
   detailContent: document.querySelector('#detail-content'),
+  personView: document.querySelector('#person-view'),
+  personContent: document.querySelector('#person-content'),
+  personBack: document.querySelector('#back-from-person'),
   back: document.querySelector('#back-to-list'),
   networkStatus: document.querySelector('#network-status'),
   installButton: document.querySelector('#install-app'),
@@ -72,6 +79,14 @@ let draftGenres = [...state.genres];
 let activeCatalog = null;
 let activeDetail = null;
 let activeRecommendations = null;
+let activePerson = null;
+let personSequence = 0;
+let searchTimer = null;
+let searchComposing = false;
+let suggestionItems = [];
+let activeSuggestion = -1;
+let personShown = { movie: 12, tv: 12 };
+let personScroll = { movie: null, tv: null };
 let stagedCatalog = null;
 let stagedDetail = null;
 let catalogSequence = 0;
@@ -211,7 +226,12 @@ function renderControls() {
     els.editorialIntro.append(node('p', 'editorial-meta', `${collection.status === 'draft' ? 'Черновик · ждёт утверждения содержания. ' : 'Редакционная подборка. '}${collection.owner}. Обновлено: ${collection.updated}.${collection.reviewDue ? ` Следующая проверка: ${collection.reviewDue}.` : ''} Метаданные и оценки — TMDB.`));
   }
   setChoiceButtons('[data-library]', state.library, 'library');
-  els.title.textContent = search ? 'Результаты поиска' : lists ? list.title : mine ? LIBRARY_SECTIONS[state.library].label : 'Идеи для просмотра';
+  els.title.textContent = search ? (state.searchType === 'person' ? 'Найденные люди' : 'Результаты поиска') : lists ? list.title : mine ? LIBRARY_SECTIONS[state.library].label : 'Идеи для просмотра';
+  document.querySelector('.section-heading>span').textContent = search && state.searchType === 'person' ? 'Люди TMDB' : 'Оценки TMDB';
+  document.querySelector('.hero').setAttribute('aria-label', state.searchType === 'person' && search ? 'Поиск людей кино' : 'Поиск фильма или сериала');
+  els.searchLabel.textContent = state.searchType === 'person' ? 'Имя актёра или режиссёра' : 'Название фильма или сериала';
+  els.searchInput.placeholder = els.searchLabel.textContent;
+  document.querySelector('.search-hint').textContent = state.searchType === 'person' ? 'Поиск людей по данным TMDB' : 'Поиск по названию без фильтров подбора';
   els.catalogShare.replaceChildren(makeShareControls({ catalog: true }));
   els.searchInput.value = state.q;
   draftPickType = state.pickType;
@@ -414,6 +434,7 @@ function posterWaitOptions(signal) {
 }
 
 function makeCard(item, index, { numbered = true, recommendation = false } = {}) {
+  if (item.type === 'person') return makePersonCard(item, index);
   const href = stateUrl({ ...listState(state), view: item.type, id: item.id }, location.href);
   const card = node('a', recommendation ? 'card recommendation-card' : 'card');
   card.href = href.pathname + href.search;
@@ -445,14 +466,40 @@ function makeCard(item, index, { numbered = true, recommendation = false } = {})
   const genres = genreNames(item);
   meta.append(node('span', 'card-genres', genres));
   card.append(meta);
+  if (item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && item.date > new Date().toISOString().slice(0, 10)) card.append(node('span', 'upcoming-label', 'Скоро'));
+  if (item.characters?.length) card.append(node('p', 'credit-role', item.characters.join(', ')));
+  else if (item.directed) card.append(node('p', 'credit-role', item.type === 'tv' ? 'Режиссура эпизодов' : 'Режиссёр'));
   if (item.reason) {
     const reason = node('p', 'editorial-reason', item.reason);
     reason.id = `why-${item.type}-${item.id}`;
     card.setAttribute('aria-describedby', reason.id);
     card.append(reason);
   }
-  const ratingLabel = item.votes ? `Оценка ${formatRating(item.rating, item.votes)} из 10` : 'Оценок пока нет';
-  card.setAttribute('aria-label', `Подробнее: ${item.title}. ${mediaType}, ${item.year || 'год неизвестен'}. ${ratingLabel}`);
+  const ratingLabel = item.votes ? `Оценка ${formatRating(item.rating, item.votes)} из 10. Голосов: ${new Intl.NumberFormat('ru-RU').format(item.votes)}` : 'Оценок пока нет';
+  card.setAttribute('aria-label', `Подробнее: ${item.title}. ${mediaType}, ${item.year || 'год неизвестен'}. ${item.characters?.length ? 'Роль: ' + item.characters.join(', ') + '. ' : item.directed ? 'Режиссура. ' : ''}${ratingLabel}`);
+  return card;
+}
+
+function makePersonCard(item, index) {
+  const href = stateUrl({ ...listState(state), view: 'person', id: item.id }, location.href);
+  const card = node('a', 'card person-result');
+  card.href = href.pathname + href.search;
+  card.dataset.type = 'person';
+  card.dataset.id = String(item.id);
+  card.style.setProperty('--i', String(Math.min(index, 8)));
+  const portrait = node('div', 'poster');
+  const photo = node('img');
+  photo.src = item.photo || 'img/noposter.jpg';
+  photo.alt = '';
+  photo.loading = index < firstRowCount() ? 'eager' : 'lazy';
+  photo.decoding = 'async';
+  photo.addEventListener('error', () => { photo.src = 'img/noposter.jpg'; }, { once: true });
+  portrait.append(photo);
+  card.append(portrait, node('h3', '', item.name));
+  const department = { Acting: 'Актёр', Directing: 'Режиссёр' }[item.department] || item.department || 'Деятель кино';
+  card.append(node('p', 'card-meta', department));
+  if (item.knownFor.length) card.append(node('p', 'person-known-for', item.knownFor.map(work => `${work.title} (${work.type === 'tv' ? 'сериал' : 'фильм'}, ${work.year || 'год неизвестен'})`).join(' · ')));
+  card.setAttribute('aria-label', `Открыть: ${item.name}. ${department}.`);
   return card;
 }
 
@@ -461,7 +508,7 @@ function renderCatalog(result, animate = true, cards = result.items.map(makeCard
   els.grid.replaceChildren(...cards);
   els.empty.hidden = result.items.length > 0;
   if (!result.items.length) {
-    els.emptyTitle.textContent = state.mode === 'search' ? 'Ничего не найдено' : state.mode === 'lists' ? 'В списке пока нет фильмов' : state.mode === 'my' ? `В «${LIBRARY_SECTIONS[state.library].label}» пока пусто` : 'Подборка пуста';
+    els.emptyTitle.textContent = state.mode === 'search' ? (state.searchType === 'person' ? 'Люди не найдены' : 'Ничего не найдено') : state.mode === 'lists' ? 'В списке пока нет фильмов' : state.mode === 'my' ? `В «${LIBRARY_SECTIONS[state.library].label}» пока пусто` : 'Подборка пуста';
     els.emptyCopy.textContent = state.mode === 'my' ? 'Открой карточку фильма или сериала и добавь его в этот список.' : state.mode === 'lists' && editorialCollection(state.list) ? 'Сейчас не удалось загрузить карточки подборки. Проверь соединение и повтори запрос.' : 'Попробуйте изменить запрос или параметры.';
   }
   const totalPages = Math.max(1, result.totalPages);
@@ -471,7 +518,7 @@ function renderCatalog(result, animate = true, cards = result.items.map(makeCard
   els.pageLabel.textContent = 'Страница ' + state.page + ' из ' + totalPages;
   els.grid.setAttribute('aria-busy', 'false');
   els.grid.classList.remove('updating');
-  els.status.textContent = result.items.length ? 'Показано ' + result.items.length + ' результатов' : '';
+  els.status.textContent = result.items.length ? `Показано ${result.items.length} ${countWord(result.items.length, ['результат', 'результата', 'результатов'])}` : '';
   els.error.hidden = !result.missing;
   if (result.missing) {
     els.errorText.textContent = `Не удалось загрузить ${result.missing} из ${result.items.length + result.missing} карточек. Показаны доступные; можно повторить запрос.`;
@@ -486,10 +533,12 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   stagedCatalog = null;
   const key = catalogKey(state);
   els.notice.replaceChildren();
-  if (state.mode === 'search' && !state.q) {
+  if (state.mode === 'search' && state.q.trim().length < 2) {
     els.grid.replaceChildren();
     els.empty.hidden = false;
-    els.emptyTitle.textContent = 'Введите название фильма или сериала';
+    els.emptyTitle.textContent = state.q ? 'Введи ещё один символ' : state.searchType === 'person' ? 'Введи имя человека' : 'Введи название фильма или сериала';
+    els.emptyCopy.textContent = 'Результаты появятся автоматически.';
+    closeSuggestions();
     els.pages.hidden = true;
     els.error.hidden = true;
     els.status.textContent = '';
@@ -510,7 +559,7 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   const notice = startLoadingNotice(els.notice, { signal: controller.signal, onRetry: () => loadCatalog({ force: true }) });
   try {
     const collection = state.mode === 'lists' && editorialCollection(state.list);
-    const genreTypes = state.mode === 'search' ? ['movie', 'tv']
+    const genreTypes = state.mode === 'search' ? (state.searchType === 'person' ? [] : ['movie', 'tv'])
       : [state.mode === 'lists' ? (READY_LISTS[state.list] || READY_LISTS['trending-movie']).type : state.pickType];
     let result = !force && catalogCache.get(key);
     if (state.mode === 'my') result = { items: libraryItems(state.library), page: 1, totalPages: 1 };
@@ -520,7 +569,10 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     }
     if (sequence !== catalogSequence) return;
     if (state.mode === 'pick') orderGenresByPopularity(state.pickType, result.items);
+    catalogCache.delete(key);
     catalogCache.set(key, result);
+    if (catalogCache.size > 20) catalogCache.delete(catalogCache.keys().next().value);
+    if (state.mode === 'search' && state.page === 1) renderSuggestions(result.items);
     const cards = result.items.map(makeCard);
     stagedCatalog = { result, cards, sequence };
     if (cards.length) {
@@ -540,6 +592,7 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     els.grid.setAttribute('aria-busy', 'false');
     els.grid.classList.remove('updating');
     els.error.hidden = false;
+    closeSuggestions();
     els.errorText.textContent = 'Не удалось получить данные TMDB. Проверь соединение и попробуй ещё раз.';
     els.status.textContent = els.grid.children.length ? 'Показаны прежние результаты' : '';
     if (!els.grid.children.length) els.pages.hidden = true;
@@ -548,19 +601,78 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   }
 }
 
+function closeSuggestions() {
+  els.suggestions.hidden = true;
+  els.suggestions.replaceChildren();
+  els.searchInput.setAttribute('aria-expanded', 'false');
+  els.searchInput.removeAttribute('aria-activedescendant');
+  activeSuggestion = -1;
+}
+
+function renderSuggestions(items) {
+  suggestionItems = items.slice(0, 6);
+  closeSuggestions();
+  if (!suggestionItems.length || document.activeElement !== els.searchInput || state.mode !== 'search') return;
+  for (const [index, item] of suggestionItems.entries()) {
+    const option = node('div', 'search-option');
+    option.id = `search-option-${index}`;
+    option.setAttribute('role', 'option');
+    option.setAttribute('aria-selected', 'false');
+    option.dataset.index = String(index);
+    const photo = node('img');
+    photo.src = (item.type === 'person' ? item.photo : item.poster) || 'img/noposter.jpg';
+    photo.alt = '';
+    photo.loading = 'lazy';
+    photo.addEventListener('error', () => { photo.src = 'img/noposter.jpg'; }, { once: true });
+    const label = node('span');
+    const department = ({ Acting: 'Актёр', Directing: 'Режиссёр' }[item.department] || item.department || 'Человек');
+    label.append(node('strong', '', item.type === 'person' ? item.name : item.title),
+      node('small', '', item.type === 'person' ? `${department}${item.knownFor?.[0] ? ' · ' + item.knownFor[0].title : ''}` : `${item.type === 'movie' ? 'Фильм' : 'Сериал'} · ${item.year || 'год неизвестен'}`));
+    option.append(photo, label);
+    option.addEventListener('pointerdown', event => event.preventDefault());
+    option.addEventListener('click', () => openSuggestion(index));
+    els.suggestions.append(option);
+  }
+  els.suggestions.hidden = false;
+  els.searchInput.setAttribute('aria-expanded', 'true');
+  els.searchAnnouncement.textContent = `Найдено подсказок: ${suggestionItems.length}`;
+}
+
+function selectSuggestion(index) {
+  activeSuggestion = index;
+  [...els.suggestions.children].forEach((option, i) => option.setAttribute('aria-selected', String(i === index)));
+  if (index >= 0) {
+    const option = els.suggestions.children[index];
+    els.searchInput.setAttribute('aria-activedescendant', option.id);
+    option.scrollIntoView({ block: 'nearest' });
+  } else els.searchInput.removeAttribute('aria-activedescendant');
+}
+
+function openSuggestion(index) {
+  const item = suggestionItems[index];
+  if (!item) return;
+  closeSuggestions();
+  openItem(item, { fromList: true });
+}
+
 function switchRoute(next, { replace = false, scrollTop = true, scrollCatalog = false } = {}) {
+  clearTimeout(searchTimer);
+  closeSuggestions();
   activeCatalog?.abort();
   activeDetail?.abort();
   activeRecommendations?.abort();
+  activePerson?.abort();
   catalogSequence++;
   detailSequence++;
   recommendationsSequence++;
+  personSequence++;
   state = listState(next);
   const url = stateUrl(state, location.href);
   history[replace ? 'replaceState' : 'pushState']({}, '', url.pathname + url.search);
   root.dataset.route = 'list';
   els.list.hidden = false;
   els.detail.hidden = true;
+  els.personView.hidden = true;
   els.detailContent.replaceChildren();
   renderControls();
   if (scrollTop) window.scrollTo(0, 0);
@@ -600,9 +712,14 @@ function expandablePeople(people, { director = false } = {}) {
     const entry = node('li', director ? 'director-person' : 'cast-person');
     const copy = node('div', 'person-copy');
     if (director) copy.append(node('span', 'person-label', people.length === 1 ? 'Режиссёр' : 'Режиссёры'));
-    copy.append(node('p', 'person-name', person.name));
+    const personUrl = stateUrl({ ...state, view: 'person', id: person.id, role: director ? 'directing' : 'acting', personTab: 'movie', personSort: 'popular', shows: false }, location.href);
+    const link = node('a', 'person-link');
+    link.href = personUrl.pathname + personUrl.search;
+    link.append(personPortrait(person), node('span', 'person-name', person.name));
+    link.setAttribute('aria-label', `Фильмография: ${person.name}`);
     if (!director && person.character) copy.append(node('p', 'person-role', person.character));
-    entry.append(personPortrait(person), copy);
+    copy.prepend(link);
+    entry.append(copy);
     return entry;
   };
   list.append(...people.slice(0, initialCount).map(makePerson));
@@ -746,18 +863,10 @@ function renderDetail(data, poster = makeDetailPoster(data)) {
   heading.tabIndex = -1;
   content.append(heading);
   const facts = node('div', 'detail-facts');
-  const genres = Array.isArray(data.genres) ? data.genres.map(genre => genre.name).filter(Boolean).join(', ') : '';
-  if (genres) facts.append(node('span', '', genres));
-  if (data.type === 'movie' && data.runtime) facts.append(detailLine('Длительность', data.runtime + ' мин'));
-  if (data.type === 'tv') {
-    if (Number.isInteger(data.number_of_seasons) && data.number_of_seasons > 0) {
-      facts.append(node('span', '', data.number_of_seasons + ' ' + countWord(data.number_of_seasons, ['сезон', 'сезона', 'сезонов'])));
-    }
-    if (Number.isInteger(data.number_of_episodes) && data.number_of_episodes > 0) {
-      facts.append(node('span', '', data.number_of_episodes + ' ' + countWord(data.number_of_episodes, ['серия', 'серии', 'серий'])));
-    }
-    const statuses = { 'Returning Series': 'Продолжается', Ended: 'Завершён', Canceled: 'Отменён', 'In Production': 'В производстве', Planned: 'Планируется', Pilot: 'Пилот' };
-    if (statuses[data.status]) facts.append(detailLine('Статус', statuses[data.status]));
+  for (const fact of detailFacts(data)) {
+    const element = node('span', fact.kind === 'certificate' ? 'detail-certificate' : 'detail-fact');
+    element.append(node('strong', '', fact.label + ': '), document.createTextNode(fact.value));
+    facts.append(element);
   }
   content.append(facts);
   const score = node('div', 'detail-rating');
@@ -810,8 +919,20 @@ function renderDetail(data, poster = makeDetailPoster(data)) {
   drawLibraryActions();
   library.append(libraryNote, libraryButtons, libraryStatus);
   content.append(library);
+  if (typeof data.tagline === 'string' && data.tagline.trim()) content.append(node('p', 'detail-tagline', data.tagline.trim()));
   content.append(node('h2', '', data.type === 'tv' ? 'О сериале' : 'О фильме'));
   content.append(node('p', 'detail-overview', data.overview || 'Описание пока недоступно.'));
+  const extra = detailMore(data);
+  if (extra.length) {
+    const more = node('details', 'detail-more');
+    more.append(node('summary', '', data.type === 'tv' ? 'Подробнее о сериале' : 'Подробнее о фильме'));
+    const description = node('dl');
+    for (const entry of extra) {
+      description.append(node('dt', '', entry.label), node('dd', '', entry.value));
+    }
+    more.append(description, node('p', 'detail-more-source', 'По данным TMDB'));
+    content.append(more);
+  }
   const credits = node('section', 'detail-credits');
   credits.setAttribute('aria-label', 'Актёры и режиссёры');
   content.append(credits);
@@ -877,7 +998,10 @@ async function showDetail() {
   root.dataset.route = 'detail';
   els.list.hidden = true;
   els.detail.hidden = false;
+  els.personView.hidden = true;
+  els.back.lastChild.textContent = history.state?.fromPerson ? 'К фильмографии' : history.state?.fromDetail ? 'К предыдущей карточке' : 'К результатам';
   els.back.href = stateUrl(listState(state), location.href).pathname + stateUrl(listState(state), location.href).search;
+  if (history.state?.returnHref) els.back.href = history.state.returnHref;
   const loading = node('div', 'detail-loading');
   loading.setAttribute('role', 'status');
   setLoadingStatus(loading, 'Загружаем сведения…', { large: true });
@@ -892,6 +1016,7 @@ async function showDetail() {
     const posters = await waitForPosters([poster], posterWaitOptions(controller.signal));
     if (sequence !== detailSequence || controller.signal.aborted) return;
     const { recommendations, trailerBox, credits } = renderDetail(data, poster);
+    if (history.state?.scrollY) window.scrollTo(0, history.state.scrollY);
     stagedDetail = null;
     notice.finish({ failed: posters.failed > 0 });
     if (posters.failed) els.detailContent.prepend(notice.element);
@@ -916,17 +1041,214 @@ async function showDetail() {
   }
 }
 
+const personCache = new Map();
+
+function openItem(item, { role = 'acting', fromList = false } = {}) {
+  if (!item || !['movie', 'tv', 'person'].includes(item.type) || !Number.isSafeInteger(item.id)) return;
+  if (item.type === 'person') {
+    personShown = { movie: 12, tv: 12 };
+    personScroll = { movie: null, tv: null };
+  }
+  const previous = { ...history.state, scrollY: window.scrollY };
+  history.replaceState(previous, '', location.href);
+  const next = { ...state, view: item.type, id: item.id, role, personTab: 'movie', personSort: 'popular', shows: false };
+  const url = stateUrl(next, location.href);
+  history.pushState({ fromList, fromPerson: root.dataset.route === 'person', fromDetail: root.dataset.route === 'detail', returnHref: location.pathname + location.search }, '', url.pathname + url.search);
+  state = parseState(location.href);
+  if (state.view === 'person') showPerson();
+  else showDetail();
+  window.scrollTo(0, 0);
+}
+
+function updatePersonUrl() {
+  const url = stateUrl(state, location.href);
+  history.replaceState(history.state, '', url.pathname + url.search);
+}
+
+function renderPerson(data) {
+  const { person, credits } = data;
+  const container = els.personContent;
+  container.replaceChildren();
+  const header = node('div', 'person-header');
+  const photo = node('img', 'person-hero-photo');
+  photo.src = person.photoLarge || person.photo || 'img/noposter.jpg';
+  photo.alt = '';
+  photo.width = 185;
+  photo.height = 278;
+  photo.addEventListener('error', () => { photo.src = 'img/noposter.jpg'; }, { once: true });
+  const intro = node('div');
+  const heading = node('h1', '', person.name);
+  heading.id = 'person-title';
+  heading.tabIndex = -1;
+  intro.append(node('p', 'detail-kicker', 'Люди кино'), heading);
+  const roleButtons = node('div', 'person-roles');
+  roleButtons.setAttribute('role', 'group');
+  roleButtons.setAttribute('aria-label', 'Участие');
+  const hasRole = role => credits[role].movie.length + credits[role].tv.length > 0;
+  for (const [role, label] of [['acting', 'В ролях'], ['directing', 'Режиссура']]) {
+    if (!hasRole(role)) continue;
+    const button = node('button', '', label);
+    button.type = 'button';
+    button.dataset.role = role;
+    button.addEventListener('click', () => {
+      if (state.role === role) return;
+      state = { ...state, role, personTab: 'movie' };
+      personShown = { movie: 12, tv: 12 };
+      personScroll = { movie: null, tv: null };
+      updatePersonUrl();
+      renderPersonWorks(data);
+      const worksTop = els.personContent.querySelector('#person-works').getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo(0, Math.max(0, worksTop));
+    });
+    roleButtons.append(button);
+  }
+  if (roleButtons.childElementCount > 1) intro.append(roleButtons);
+  header.append(photo, intro);
+  container.append(header);
+  if (!hasRole('acting') && !hasRole('directing')) container.append(node('p', 'person-empty', 'В TMDB пока нет актёрских или режиссёрских работ этого человека.'));
+  const controls = node('div', 'person-controls');
+  const tabs = node('div', 'person-tabs');
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Тип произведений');
+  for (const [type, label] of [['movie', 'Фильмы'], ['tv', 'Сериалы']]) {
+    const button = node('button', '', label);
+    button.type = 'button';
+    button.dataset.personTab = type;
+    button.id = `person-tab-${type}`;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-controls', 'person-works');
+    button.addEventListener('click', () => {
+      if (state.personTab === type) return;
+      personScroll[state.personTab] = window.scrollY;
+      state = { ...state, personTab: type };
+      updatePersonUrl();
+      renderPersonWorks(data);
+      const controlsTop = els.personContent.querySelector('.person-controls').getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo(0, personScroll[type] ?? Math.max(0, controlsTop));
+    });
+    tabs.append(button);
+  }
+  tabs.addEventListener('keydown', event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const target = event.key === 'ArrowLeft' || event.key === 'Home' ? tabs.firstElementChild : tabs.lastElementChild;
+    target.click();
+    target.focus();
+  });
+  controls.append(tabs);
+  const sortLabel = node('label', 'person-sort-label', 'Сортировка ');
+  const sort = node('select');
+  sort.id = 'person-sort';
+  for (const [value, label] of [['popular', 'Популярные'], ['newest', 'Новые'], ['rating', 'По рейтингу']]) {
+    const option = node('option', '', label); option.value = value; sort.append(option);
+  }
+  sort.value = state.personSort;
+  sort.addEventListener('change', () => { state = { ...state, personSort: sort.value }; personShown = { movie: 12, tv: 12 }; personScroll = { movie: null, tv: null }; updatePersonUrl(); renderPersonWorks(data); window.scrollTo(0, Math.max(0, works.getBoundingClientRect().top + window.scrollY - 16)); });
+  sortLabel.append(sort);
+  controls.append(sortLabel);
+  const showsLabel = node('label', 'person-shows');
+  const shows = node('input'); shows.type = 'checkbox'; shows.id = 'person-shows'; shows.checked = state.shows;
+  shows.addEventListener('change', () => { state = { ...state, shows: shows.checked }; personShown = { movie: 12, tv: 12 }; personScroll = { movie: null, tv: null }; updatePersonUrl(); renderPersonWorks(data); window.scrollTo(0, Math.max(0, works.getBoundingClientRect().top + window.scrollY - 16)); });
+  showsLabel.append(shows, node('span', '', 'Включить телешоу'));
+  controls.append(showsLabel);
+  container.append(controls);
+  const works = node('div', 'grid person-grid');
+  works.id = 'person-works';
+  works.setAttribute('role', 'tabpanel');
+  container.append(works);
+  const more = node('button', 'people-toggle', 'Показать ещё');
+  more.type = 'button';
+  more.id = 'person-more';
+  more.addEventListener('click', () => { personShown[state.personTab] += 12; renderPersonWorks(data); });
+  container.append(more);
+  renderPersonWorks(data);
+  heading.focus({ preventScroll: true });
+}
+
+function renderPersonWorks(data) {
+  const { credits } = data;
+  const works = els.personContent.querySelector('#person-works');
+  if (!works) return;
+  const role = state.role;
+  const type = state.personTab;
+  const active = personWorks(credits, { role, type, sort: state.personSort, shows: state.shows });
+  for (const button of els.personContent.querySelectorAll('[data-role]')) {
+    button.setAttribute('aria-pressed', String(button.dataset.role === role));
+    button.classList.toggle('chosen', button.dataset.role === role);
+  }
+  for (const button of els.personContent.querySelectorAll('[data-person-tab]')) {
+    const selected = button.dataset.personTab === type;
+    button.setAttribute('aria-selected', String(selected));
+    button.tabIndex = selected ? 0 : -1;
+    button.textContent = `${button.dataset.personTab === 'movie' ? 'Фильмы' : 'Сериалы'} · ${personWorks(credits, { role, type: button.dataset.personTab, shows: state.shows }).length}`;
+  }
+  works.setAttribute('aria-labelledby', `person-tab-${type}`);
+  els.personContent.querySelector('.person-shows').hidden = type !== 'tv';
+  const cards = active.slice(0, personShown[type]).map((item, i) => makeCard({ ...item, directed: role === 'directing' }, i, { numbered: false }));
+  works.replaceChildren(...cards);
+  if (!cards.length) works.append(node('p', 'person-empty', `В TMDB пока нет ${type === 'tv' ? 'сериалов' : 'фильмов'} с ${role === 'acting' ? 'актёрским участием' : 'режиссёрской работой'}${type === 'tv' && !state.shows ? ' при выключенных телешоу' : ''}.`));
+  els.personContent.querySelector('#person-more').hidden = personShown[type] >= active.length;
+}
+
+async function showPerson() {
+  activeCatalog?.abort(); catalogSequence++;
+  activeDetail?.abort(); detailSequence++;
+  activeRecommendations?.abort(); recommendationsSequence++;
+  activePerson?.abort();
+  activePerson = new AbortController();
+  const controller = activePerson;
+  const sequence = ++personSequence;
+  root.dataset.route = 'person';
+  els.list.hidden = true; els.detail.hidden = true; els.personView.hidden = false;
+  els.personBack.lastElementChild.textContent = history.state?.fromDetail ? 'К фильму или сериалу' : 'К результатам поиска';
+  const fallback = stateUrl({ ...listState(state), mode: 'search', searchType: 'person', q: state.searchType === 'person' ? state.q : '' }, location.href);
+  els.personBack.href = fallback.pathname + fallback.search;
+  if (history.state?.returnHref) els.personBack.href = history.state.returnHref;
+  els.personContent.replaceChildren(node('p', 'detail-loading', 'Загружаем фильмографию…'));
+  try {
+    const data = personCache.get(state.id) || await fetchPerson(state.id, { signal: controller.signal });
+    if (sequence !== personSequence || controller.signal.aborted) return;
+    personCache.delete(state.id);
+    personCache.set(state.id, data);
+    if (personCache.size > 12) personCache.delete(personCache.keys().next().value);
+    const available = role => data.credits[role].movie.length + data.credits[role].tv.length > 0;
+    if (!available(state.role) && available(state.role === 'acting' ? 'directing' : 'acting')) {
+      state = { ...state, role: state.role === 'acting' ? 'directing' : 'acting' };
+      updatePersonUrl();
+    }
+    if (!personWorks(data.credits, { role: state.role, type: 'movie', shows: state.shows }).length &&
+      personWorks(data.credits, { role: state.role, type: 'tv', shows: state.shows }).length && !location.search.includes('ptab=')) {
+      state = { ...state, personTab: 'tv' }; updatePersonUrl();
+    }
+    setPageMeta(`${data.person.name} — Фильмография — Что посмотреть`, `Фильмы и сериалы с участием ${data.person.name} по данным TMDB.`);
+    renderPerson(data);
+    if (history.state?.scrollY) window.scrollTo(0, history.state.scrollY);
+    startup?.finish();
+  } catch (error) {
+    if (sequence !== personSequence || controller.signal.aborted) return;
+    const box = node('div', 'detail-error');
+    box.append(node('h1', '', error?.message?.includes('404') ? 'Человек не найден' : 'Не удалось открыть фильмографию'));
+    box.append(node('p', '', 'Проверь соединение и повтори запрос.'));
+    const retry = node('button', 'show', 'Повторить'); retry.type = 'button'; retry.addEventListener('click', showPerson);
+    box.append(retry); els.personContent.replaceChildren(box);
+    startup?.finish();
+  }
+}
+
 function restoreList(scrollPosition = 0) {
   activeCatalog?.abort();
   catalogSequence++;
   activeDetail?.abort();
   activeRecommendations?.abort();
+  activePerson?.abort();
   detailSequence++;
   recommendationsSequence++;
+  personSequence++;
   state = listState(parseState(location.href));
   root.dataset.route = 'list';
   els.list.hidden = false;
   els.detail.hidden = true;
+  els.personView.hidden = true;
   els.detailContent.replaceChildren();
   renderControls();
   const target = returnFocus;
@@ -943,6 +1265,19 @@ function restoreList(scrollPosition = 0) {
 }
 
 function expireInitialScreen() {
+  if (state.view === 'person') {
+    activePerson?.abort();
+    personSequence++;
+    const error = node('div', 'detail-error');
+    error.setAttribute('role', 'alert');
+    error.append(node('h1', '', 'Не удалось открыть фильмографию'), node('p', '', 'Проверь соединение и попробуй ещё раз.'));
+    const retry = node('button', 'show', 'Повторить');
+    retry.type = 'button';
+    retry.addEventListener('click', showPerson);
+    error.append(retry);
+    els.personContent.replaceChildren(error);
+    return;
+  }
   if (state.view) {
     const staged = stagedDetail;
     activeDetail?.abort();
@@ -980,7 +1315,7 @@ function expireInitialScreen() {
   stagedCatalog = null;
   const hero = els.list.querySelector('.hero-image img');
   if (hero && (!hero.complete || !hero.naturalWidth)) hero.hidden = true;
-  if (state.mode === 'search' && !state.q) return;
+  if (state.mode === 'search' && state.q.trim().length < 2) return;
   if (staged) {
     for (const image of firstScreenPosters(staged.cards, els.grid)) {
       if (image.dataset.posterReady !== 'true') setPosterFallback(image);
@@ -1008,17 +1343,55 @@ systemTheme.addEventListener('change', () => { if (themeChoice === 'system') app
 
 els.searchForm.addEventListener('submit', event => {
   event.preventDefault();
+  if (activeSuggestion >= 0 && !els.suggestions.hidden) { openSuggestion(activeSuggestion); return; }
   const q = els.searchInput.value.trim();
-  if (!q) {
-    els.searchInput.setCustomValidity('Введите название фильма или сериала');
-    els.searchInput.reportValidity();
+  clearTimeout(searchTimer);
+  closeSuggestions();
+  if (q.length < 2) return;
+  if (state.mode === 'search' && state.q === q && state.searchType === draftSearchType) {
+    if (els.grid.classList.contains('updating')) loadCatalog();
+    return;
+  }
+  switchRoute({ ...state, mode: 'search', q, searchType: draftSearchType, page: 1 }, { replace: state.mode === 'search', scrollTop: false });
+});
+function queueSearch() {
+  if (searchComposing) return;
+  let q = els.searchInput.value.trim().slice(0, 200);
+  if (state.mode !== 'search') {
+    switchRoute({ ...state, mode: 'search', q: '', searchType: draftSearchType, page: 1 }, { scrollTop: false });
+    els.searchInput.value = q;
+  }
+  clearTimeout(searchTimer);
+  activeCatalog?.abort(); catalogSequence++;
+  closeSuggestions();
+  suggestionItems = [];
+  if (q.length < 2) {
+    switchRoute({ ...state, q, searchType: draftSearchType, page: 1 }, { replace: true, scrollTop: false });
     els.searchInput.focus();
     return;
   }
-  els.searchInput.setCustomValidity('');
-  switchRoute({ ...state, mode: 'search', q, searchType: draftSearchType, page: 1 });
+  els.grid.classList.add('updating');
+  els.status.textContent = 'Обновляем результаты поиска…';
+  searchTimer = setTimeout(() => {
+    q = els.searchInput.value.trim().slice(0, 200);
+    switchRoute({ ...state, mode: 'search', q, searchType: draftSearchType, page: 1 }, { replace: true, scrollTop: false });
+    els.searchInput.focus();
+  }, 350);
+}
+els.searchInput.addEventListener('compositionstart', () => { searchComposing = true; clearTimeout(searchTimer); });
+els.searchInput.addEventListener('compositionend', () => { searchComposing = false; queueSearch(); });
+els.searchInput.addEventListener('input', queueSearch);
+els.searchInput.addEventListener('focus', () => {
+  if (suggestionItems.length && state.mode === 'search' && state.q === els.searchInput.value.trim()) renderSuggestions(suggestionItems);
 });
-els.searchInput.addEventListener('input', () => els.searchInput.setCustomValidity(''));
+els.searchInput.addEventListener('keydown', event => {
+  if (event.key === 'Escape') { closeSuggestions(); return; }
+  if (els.suggestions.hidden || !['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+  event.preventDefault();
+  const next = event.key === 'ArrowDown' ? (activeSuggestion + 1) % suggestionItems.length : (activeSuggestion - 1 + suggestionItems.length) % suggestionItems.length;
+  selectSuggestion(next);
+});
+document.addEventListener('click', event => { if (!els.searchForm.contains(event.target)) closeSuggestions(); });
 els.searchMode.addEventListener('click', () => {
   if (state.mode === 'search' && !state.view) return;
   switchRoute({ ...state, mode: 'search', q: els.searchInput.value.trim(), page: 1 });
@@ -1055,7 +1428,9 @@ document.querySelectorAll('[data-pick-type]').forEach(button => button.addEventL
 document.querySelectorAll('[data-search-type]').forEach(button => button.addEventListener('click', () => {
   draftSearchType = button.dataset.searchType;
   setChoiceButtons('[data-search-type]', draftSearchType, 'searchType');
-  if (state.mode === 'search' && state.q) switchRoute({ ...state, searchType: draftSearchType, page: 1 }, { scrollTop: false });
+  const q = els.searchInput.value.trim();
+  suggestionItems = [];
+  if (state.mode === 'search') switchRoute({ ...state, q, searchType: draftSearchType, page: 1 }, { scrollTop: false });
 }));
 async function updateBackup() {
   if (backupUpdater) { backupUpdater(); return; }
@@ -1133,33 +1508,44 @@ els.grid.addEventListener('click', event => {
   if (!card || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
   returnFocus = { type: card.dataset.type, id: card.dataset.id };
-  history.replaceState({ scrollY: window.scrollY }, '', location.href);
-  history.pushState({ fromList: true }, '', card.href);
-  state = parseState(location.href);
-  showDetail();
-  window.scrollTo(0, 0);
+  openItem({ type: card.dataset.type, id: Number(card.dataset.id) }, { fromList: true });
 });
 els.detailContent.addEventListener('click', event => {
+  const person = event.target.closest('a.person-link');
+  if (person && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    const parsed = parseState(person.href);
+    openItem({ type: 'person', id: parsed.id }, { role: parsed.role });
+    return;
+  }
   const card = event.target.closest('a.recommendation-card');
   if (!card || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
-  history.pushState({ fromList: true }, '', card.href);
-  state = parseState(location.href);
-  showDetail();
-  window.scrollTo(0, 0);
+  openItem({ type: card.dataset.type, id: Number(card.dataset.id) });
+});
+els.personContent.addEventListener('click', event => {
+  const card = event.target.closest('a.card');
+  if (!card || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  openItem({ type: card.dataset.type, id: Number(card.dataset.id) });
 });
 els.back.addEventListener('click', event => {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
-  if (history.state?.fromList) history.back();
+  if (history.state?.fromList || history.state?.fromPerson || history.state?.fromDetail) history.back();
   else switchRoute(listState(state));
+});
+els.personBack.addEventListener('click', event => {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  if (history.state?.fromDetail || history.state?.fromList) history.back();
+  else switchRoute({ ...listState(state), mode: 'search', searchType: 'person', page: 1 });
 });
 window.addEventListener('popstate', event => {
   state = parseState(location.href);
-  if (state.view) {
-    showDetail();
-    window.scrollTo(0, 0);
-  } else {
+  if (state.view === 'person') showPerson();
+  else if (state.view) { showDetail(); if (event.state?.scrollY) window.scrollTo(0, event.state.scrollY); }
+  else {
     restoreList(event.state?.scrollY || 0);
   }
 });
@@ -1214,8 +1600,9 @@ applyTheme();
 updateNetworkStatus();
 showInstallHint();
 renderControls();
-startup?.setRetryHandler(() => state.view ? showDetail() : loadCatalog({ force: true }));
+startup?.setRetryHandler(() => state.view === 'person' ? showPerson() : state.view ? showDetail() : loadCatalog({ force: true }));
 startup?.setTimeoutHandler(expireInitialScreen);
-if (state.view) showDetail();
+if (state.view === 'person') showPerson();
+else if (state.view) showDetail();
 else restoreList(history.state?.scrollY || 0);
 ensureGenres(state.pickType);
