@@ -97,7 +97,7 @@
       "decision": "approved",
       "decisionScope": "implementation",
       "implementation": "done",
-      "delivery": "branch",
+      "delivery": "pr",
       "acceptance": "pending",
       "brief": "docs/harness/features/people-search-and-detail.md",
       "evidenceRef": "docs/harness/EVIDENCE.md#PEOPLE-001",
