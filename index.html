@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap">
-  <link rel="stylesheet" href="main.css?v=20261012cast2">
+  <link rel="stylesheet" href="main.css?v=20261015people4">
   <link rel="stylesheet" href="spinner.css?v=20261012spinner7">
   <style>
     html.startup-active { overflow: hidden; }
@@ -32,15 +32,17 @@
       const dark = choice === 'dark' || (choice === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     } catch (_) { /* The site remains usable when storage is unavailable. */ }
-    if (new URLSearchParams(location.search).has('view')) document.documentElement.dataset.route = 'detail';
+    const initialView = new URLSearchParams(location.search).get('view');
+    if (initialView) document.documentElement.dataset.route = initialView === 'person' ? 'person' : 'detail';
   </script>
-  <link rel="modulepreload" href="tmdb.js?v=20261012cast1">
+  <link rel="modulepreload" href="tmdb.js?v=20261012people4">
   <link rel="modulepreload" href="tmdb-config.js">
-  <link rel="modulepreload" href="state.js?v=20261007perf2">
+  <link rel="modulepreload" href="state.js?v=20261012people4">
+  <link rel="modulepreload" href="detail-metadata.js?v=20261012people4">
   <link rel="modulepreload" href="library.js?v=20261007perf2">
   <link rel="modulepreload" href="share.js?v=20261007perf2">
   <link rel="modulepreload" href="editorial.js?v=20261007perf2">
-  <script type="module" src="fetchscript.js?v=20261015copy1"></script>
+  <script type="module" src="fetchscript.js?v=20261015people5"></script>
 </head>
 <body>
   <div id="startup-overlay" class="startup-overlay" role="status" aria-live="polite" aria-label="Загрузка сайта">
@@ -99,10 +101,11 @@
         notice.hidden = false;
       };
       const showBootFailure = () => {
-        if (root.dataset.route === 'detail') {
+        if (root.dataset.route === 'detail' || root.dataset.route === 'person') {
           document.querySelector('#list-view').hidden = true;
-          document.querySelector('#detail-view').hidden = false;
-          const content = document.querySelector('#detail-content');
+          const person = root.dataset.route === 'person';
+          document.querySelector(person ? '#person-view' : '#detail-view').hidden = false;
+          const content = document.querySelector(person ? '#person-content' : '#detail-content');
           const message = document.createElement('p');
           message.textContent = 'Не удалось открыть страницу. Проверь соединение и обнови её.';
           const retry = document.createElement('button');
@@ -206,8 +209,11 @@
           <h1><span>ХОРОШЕЕ</span><span>КИНО.</span><span>БЕЗ <i class="long-word">ДОЛГИХ</i></span><span>ПОИСКОВ.</span></h1>
           <div class="hero-image"><img src="assets/hero.jpg" width="657" height="219" alt="Космонавт на далёкой планете" fetchpriority="high"></div>
           <form id="search-form" role="search">
-            <label class="input" for="search-query"><span class="sr-only">Название фильма или сериала</span><span class="icon icon-search" aria-hidden="true"></span><input id="search-query" type="search" placeholder="Название фильма или сериала" autocomplete="off"></label>
-            <button class="find" type="submit">Найти <span class="icon icon-arrow-right" aria-hidden="true"></span></button>
+            <div class="search-box">
+              <label class="input" for="search-query"><span id="search-label" class="sr-only">Название фильма или сериала</span><span class="icon icon-search" aria-hidden="true"></span><input id="search-query" type="search" placeholder="Название фильма или сериала" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-suggestions" aria-labelledby="search-label"></label>
+              <div id="search-suggestions" class="search-suggestions" role="listbox" aria-label="Подсказки поиска" hidden></div>
+              <span id="search-announcement" class="sr-only" role="status" aria-live="polite"></span>
+            </div>
           </form>
         </section>
 
@@ -238,9 +244,10 @@
           </div>
           <div id="search-controls" class="filter-mode" hidden>
             <div class="types" role="group" aria-label="Тип поиска">
-              <button type="button" data-search-type="all" class="chosen" aria-pressed="true">Всё</button>
+              <button type="button" data-search-type="all" class="chosen" aria-pressed="true">Все названия</button>
               <button type="button" data-search-type="movie" aria-pressed="false">Фильмы</button>
               <button type="button" data-search-type="tv" aria-pressed="false">Сериалы</button>
+              <button type="button" data-search-type="person" aria-pressed="false">Люди</button>
             </div>
             <p class="search-hint">Поиск по названию без фильтров подбора</p>
           </div>
@@ -281,6 +288,10 @@
       <section id="detail-view" class="detail-page" aria-label="Подробности" aria-labelledby="detail-title" hidden>
         <a href="./" id="back-to-list" class="back-link"><span class="icon icon-arrow-left" aria-hidden="true"></span>К результатам</a>
         <div id="detail-content" aria-live="polite"></div>
+      </section>
+      <section id="person-view" class="person-page" aria-label="Фильмография" aria-labelledby="person-title" hidden>
+        <a href="./?mode=search&amp;st=person" id="back-from-person" class="back-link"><span class="icon icon-arrow-left" aria-hidden="true"></span><span>К поиску людей</span></a>
+        <div id="person-content"></div>
       </section>
     </main>
 

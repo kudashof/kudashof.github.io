@@ -47,11 +47,11 @@ export function normalizeMedia(item, fallbackType) {
 }
 
 export function buildSearchRequest(state) {
-  const type = state.searchType === 'movie' || state.searchType === 'tv' ? state.searchType : 'multi';
+  const type = ['movie', 'tv', 'person'].includes(state.searchType) ? state.searchType : 'multi';
   return {
     path: `/search/${type}`,
     params: { query: state.q.trim(), page: state.page, language: 'ru-RU', include_adult: false },
-    fallbackType: type === 'multi' ? undefined : type,
+    fallbackType: type === 'multi' || type === 'person' ? undefined : type,
   };
 }
 
@@ -148,13 +148,73 @@ export async function fetchCatalog(state, options = {}) {
       ? buildListRequest(state)
       : buildDiscoverRequest(state);
   const data = await apiGet(request.path, request.params, options);
-  const items = Array.isArray(data.results) ? data.results.map(item => normalizeMedia(item, request.fallbackType)).filter(Boolean) : [];
+  const items = Array.isArray(data.results) ? data.results.map(item =>
+    state.mode === 'search' && state.searchType === 'person' ? normalizePerson(item) : normalizeMedia(item, request.fallbackType)).filter(Boolean) : [];
   return {
     items,
     page: Number.isInteger(data.page) ? data.page : state.page,
     totalPages: Number.isInteger(data.total_pages) ? Math.min(data.total_pages, 500) : 1,
     totalResults: Number.isInteger(data.total_results) ? data.total_results : items.length,
   };
+}
+
+export function normalizePerson(item) {
+  if (!Number.isSafeInteger(item?.id) || item.id <= 0 || typeof item.name !== 'string' || !item.name.trim() || item.adult === true) return null;
+  return {
+    type: 'person', id: item.id, name: item.name.trim(),
+    photo: imageUrl(item.profile_path, 'w185'), photoLarge: imageUrl(item.profile_path, 'h632'),
+    department: typeof item.known_for_department === 'string' ? item.known_for_department : '',
+    knownFor: (Array.isArray(item.known_for) ? item.known_for : []).filter(work => work?.adult !== true).map(work => normalizeMedia(work)).filter(Boolean).slice(0, 3),
+  };
+}
+
+function validCreditDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? value : '';
+}
+
+export function normalizePersonCredits(data) {
+  const groups = { acting: { movie: new Map(), tv: new Map() }, directing: { movie: new Map(), tv: new Map() } };
+  for (const [role, entries] of [['acting', data?.cast], ['directing', data?.crew]]) {
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      if (entry?.adult === true || (role === 'directing' && entry.job !== 'Director')) continue;
+      const work = normalizeMedia(entry);
+      if (!work) continue;
+      const group = groups[role][work.type];
+      const existing = group.get(work.id);
+      const character = typeof entry.character === 'string' ? entry.character.trim() : '';
+      if (existing) {
+        if (character && !existing.characters.includes(character)) existing.characters.push(character);
+        if (!existing.date) existing.date = validCreditDate(work.type === 'movie' ? entry.release_date : entry.first_air_date);
+        existing.isTalk ||= work.type === 'tv' && work.genres.some(id => id === 10767 || id === 10763);
+        existing.episodeCount = Math.max(existing.episodeCount, Number.isInteger(entry.episode_count) ? entry.episode_count : 0);
+      } else group.set(work.id, { ...work, date: validCreditDate(work.type === 'movie' ? entry.release_date : entry.first_air_date),
+        characters: character ? [character] : [], episodeCount: Number.isInteger(entry.episode_count) ? entry.episode_count : 0,
+        isTalk: work.type === 'tv' && work.genres.some(id => id === 10767 || id === 10763) });
+    }
+  }
+  return Object.fromEntries(Object.entries(groups).map(([role, byType]) =>
+    [role, Object.fromEntries(Object.entries(byType).map(([type, works]) => [type, [...works.values()]]))]));
+}
+
+export function personWorks(credits, { role = 'acting', type = 'movie', sort = 'popular', shows = false } = {}) {
+  const items = credits?.[role]?.[type] || [];
+  const filtered = shows ? items : items.filter(item => !item.isTalk);
+  const rank = (a, b) => sort === 'newest'
+    ? (b.date || '').localeCompare(a.date || '')
+    : sort === 'rating'
+      ? (Number(b.votes > 0) - Number(a.votes > 0) || b.rating - a.rating || b.votes - a.votes)
+      : b.popularity - a.popularity;
+  return [...filtered].sort((a, b) => rank(a, b) || a.id - b.id);
+}
+
+export async function fetchPerson(id, options = {}) {
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid person address');
+  const data = await apiGet(`/person/${id}`, { language: 'ru-RU', append_to_response: 'combined_credits' }, options);
+  if (data?.id !== id || typeof data.name !== 'string' || !data.name.trim() || !data.combined_credits) throw new Error('Invalid person response');
+  return { person: normalizePerson(data), credits: normalizePersonCredits(data.combined_credits) };
 }
 
 export async function fetchGenres(type, options = {}) {
@@ -186,7 +246,7 @@ export function pickTrailer(videos) {
 
 export async function fetchDetail(type, id, options = {}) {
   if (!['movie', 'tv'].includes(type) || !Number.isInteger(id) || id <= 0) throw new Error('Invalid detail address');
-  const data = await apiGet(`/${type}/${id}`, { language: 'ru-RU', append_to_response: 'videos' }, options);
+  const data = await apiGet(`/${type}/${id}`, { language: 'ru-RU', append_to_response: type === 'movie' ? 'videos,release_dates' : 'videos,content_ratings' }, options);
   return { ...data, type, trailer: pickTrailer(data.videos?.results) };
 }
 
