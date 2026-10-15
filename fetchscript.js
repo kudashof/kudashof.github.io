@@ -507,7 +507,6 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   els.error.hidden = true;
   const updateLabel = state.mode === 'lists' ? 'Обновляем список' : state.mode === 'search' ? 'Обновляем результаты поиска' : 'Обновляем подборку';
   setLoadingStatus(els.status, els.grid.children.length ? `${updateLabel}; пока показаны прежние результаты…` : 'Загружаем результаты…');
-  startup?.setStatus('Загружаем результаты…');
   const notice = startLoadingNotice(els.notice, { signal: controller.signal, onRetry: () => loadCatalog({ force: true }) });
   try {
     const collection = state.mode === 'lists' && editorialCollection(state.list);
@@ -526,7 +525,6 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     stagedCatalog = { result, cards, sequence };
     if (cards.length) {
       setLoadingStatus(els.status, 'Загружаем постеры…');
-      startup?.setStatus('Загружаем постеры первого экрана…');
     }
     const firstPosters = firstScreenPosters(cards, els.grid);
     const posters = await waitForPosters(firstPosters, posterWaitOptions(controller.signal));
@@ -883,7 +881,6 @@ async function showDetail() {
   const loading = node('div', 'detail-loading');
   loading.setAttribute('role', 'status');
   setLoadingStatus(loading, 'Загружаем сведения…', { large: true });
-  startup?.setStatus('Загружаем сведения…');
   els.detailContent.replaceChildren(loading);
   const notice = startLoadingNotice(els.detailContent, { signal: controller.signal, onRetry: showDetail });
   try {
@@ -892,7 +889,6 @@ async function showDetail() {
     const poster = makeDetailPoster(data);
     stagedDetail = { data, poster, sequence };
     setLoadingStatus(loading, 'Загружаем постер…', { large: true });
-    startup?.setStatus('Загружаем постер…');
     const posters = await waitForPosters([poster], posterWaitOptions(controller.signal));
     if (sequence !== detailSequence || controller.signal.aborted) return;
     const { recommendations, trailerBox, credits } = renderDetail(data, poster);
