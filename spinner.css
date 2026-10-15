@@ -53,6 +53,14 @@ html[data-theme=dark] .cinema-spinner, [data-spinner-theme=dark] .cinema-spinner
   animation: spinner-breathe 2.4s ease-in-out infinite;
 }
 .cinema-spinner--large { --spinner-size: 96px; --spinner-stroke: 3px; }
+.startup-overlay { --startup-spinner-size: 128px; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); text-align: center; }
+.startup-overlay__content { position: relative; width: min(100%, 440px); height: 0; }
+.startup-overlay .cinema-spinner { --spinner-size: var(--startup-spinner-size); --spinner-stroke: 3px; position: absolute; top: 0; left: 50%; transform: translate(-50%, -50%); animation: none; }
+.startup-overlay__content > p { position: absolute; top: calc(var(--startup-spinner-size) / 2 + 18px); width: 100%; margin: 0; font-size: 15px; line-height: 1.5; color: var(--fg, inherit); }
+.startup-overlay__notice { position: absolute; top: calc(var(--startup-spinner-size) / 2 + 66px); width: 100%; padding: 14px 16px; border: 1px solid var(--border, #636368); border-left: 3px solid #9dbf00; border-radius: 4px; text-align: left; }
+.startup-overlay__notice[hidden] { display: none; }
+.startup-overlay__notice p { margin: 0 0 12px; font-size: 14px; line-height: 1.6; }
+.startup-overlay__notice button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--border, #636368); border-radius: 4px; background: var(--soft, #202023); color: var(--fg, inherit); font: inherit; cursor: pointer; }
 .catalog-status { display: flex; align-items: center; gap: 12px; min-height: 52px; }
 .detail-loading, .recommendations-status { display: flex; align-items: center; gap: 14px; }
 .detail-loading {
@@ -66,6 +74,7 @@ html[data-theme=dark] .cinema-spinner, [data-spinner-theme=dark] .cinema-spinner
 .loading-notice[hidden] { display: none; }
 .loading-notice p { margin: 0 0 10px; font-size: 14px; line-height: 1.6; }
 .loading-notice button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--border, #636368); border-radius: 4px; background: var(--soft, #202023); color: var(--fg, inherit); font: inherit; cursor: pointer; }
+@media (max-width: 480px) { .startup-overlay { --startup-spinner-size: 104px; } }
 @keyframes spinner-orbit { to { transform: rotate(360deg); } }
 @keyframes spinner-breathe {
   0%, 100% { transform: scale(.94); opacity: .82; }

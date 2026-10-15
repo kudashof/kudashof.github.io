@@ -3,10 +3,11 @@ import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './st
 import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007perf2';
 import { buildSharePayload, shareLink } from './share.js?v=20261007perf2';
 import { EDITORIAL_COLLECTIONS, editorialCollection, fetchEditorial } from './editorial.js?v=20261007perf2';
-import { setLoadingStatus, startLoadingNotice } from './spinner.js?v=20261012spinner3';
-import { installPosterFallback, waitForPosters } from './poster-readiness.js?v=20261012spinner3';
+import { setLoadingStatus, startLoadingNotice } from './spinner.js?v=20261012spinner7';
+import { FALLBACK_POSTER, installPosterFallback, setPosterFallback, waitForPosters } from './poster-readiness.js?v=20261012spinner7';
 
 const root = document.documentElement;
+const startup = window.movieStartup;
 root.dataset.ratingDesign = 'ring';
 const els = {
   home: document.querySelector('#home-link'),
@@ -71,6 +72,8 @@ let draftGenres = [...state.genres];
 let activeCatalog = null;
 let activeDetail = null;
 let activeRecommendations = null;
+let stagedCatalog = null;
+let stagedDetail = null;
 let catalogSequence = 0;
 let detailSequence = 0;
 let recommendationsSequence = 0;
@@ -373,6 +376,43 @@ function firstScreenPosters(cards, grid) {
     .map(card => card.querySelector('.poster img'));
 }
 
+function realPostersReady(images, result) {
+  return images.length > 0 && !result.failed && !result.timedOut
+    && images.every(image => image.dataset.posterReady === 'true' && image.getAttribute('src') !== FALLBACK_POSTER);
+}
+
+function waitForHero(signal) {
+  const image = els.list.querySelector('.hero-image img');
+  if (!image || signal?.aborted) return Promise.resolve();
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (image.complete && !image.naturalWidth) image.hidden = true;
+      image.removeEventListener('load', loaded);
+      image.removeEventListener('error', finish);
+      signal?.removeEventListener('abort', finish);
+      resolve();
+    };
+    const loaded = async () => {
+      if (!image.naturalWidth) return finish();
+      try { await image.decode?.(); } catch (_) { /* A failed hero must not block the page. */ }
+      finish();
+    };
+    image.addEventListener('load', loaded);
+    image.addEventListener('error', finish);
+    signal?.addEventListener('abort', finish, { once: true });
+    if (image.complete) loaded();
+  });
+}
+
+function posterWaitOptions(signal) {
+  return startup?.isActive()
+    ? { signal, timeoutMs: Math.min(12000, Math.max(0, startup.remainingMs() - 1500)) }
+    : { signal };
+}
+
 function makeCard(item, index, { numbered = true, recommendation = false } = {}) {
   const href = stateUrl({ ...listState(state), view: item.type, id: item.id }, location.href);
   const card = node('a', recommendation ? 'card recommendation-card' : 'card');
@@ -443,6 +483,7 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   activeCatalog = new AbortController();
   const controller = activeCatalog;
   const sequence = ++catalogSequence;
+  stagedCatalog = null;
   const key = catalogKey(state);
   els.notice.replaceChildren();
   if (state.mode === 'search' && !state.q) {
@@ -454,6 +495,10 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     els.status.textContent = '';
     els.grid.setAttribute('aria-busy', 'false');
     els.grid.classList.remove('updating');
+    if (startup?.isActive()) {
+      await waitForHero(controller.signal);
+      if (sequence === catalogSequence && !controller.signal.aborted) startup.finish();
+    }
     return;
   }
   els.grid.setAttribute('aria-busy', 'true');
@@ -462,6 +507,7 @@ async function loadCatalog({ animate = true, force = false } = {}) {
   els.error.hidden = true;
   const updateLabel = state.mode === 'lists' ? 'Обновляем список' : state.mode === 'search' ? 'Обновляем результаты поиска' : 'Обновляем подборку';
   setLoadingStatus(els.status, els.grid.children.length ? `${updateLabel}; пока показаны прежние результаты…` : 'Загружаем результаты…');
+  startup?.setStatus('Загружаем результаты…');
   const notice = startLoadingNotice(els.notice, { signal: controller.signal, onRetry: () => loadCatalog({ force: true }) });
   try {
     const collection = state.mode === 'lists' && editorialCollection(state.list);
@@ -477,13 +523,22 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     if (state.mode === 'pick') orderGenresByPopularity(state.pickType, result.items);
     catalogCache.set(key, result);
     const cards = result.items.map(makeCard);
-    if (cards.length) setLoadingStatus(els.status, 'Загружаем постеры…');
-    const posters = await waitForPosters(firstScreenPosters(cards, els.grid), { signal: controller.signal });
+    stagedCatalog = { result, cards, sequence };
+    if (cards.length) {
+      setLoadingStatus(els.status, 'Загружаем постеры…');
+      startup?.setStatus('Загружаем постеры первого экрана…');
+    }
+    const firstPosters = firstScreenPosters(cards, els.grid);
+    const posters = await waitForPosters(firstPosters, posterWaitOptions(controller.signal));
+    if (startup?.isActive()) await waitForHero(controller.signal);
     if (sequence !== catalogSequence || controller.signal.aborted) return;
     renderCatalog(result, animate, cards);
+    stagedCatalog = null;
     notice.finish({ failed: posters.failed > 0 });
+    startup?.finish({ postersReady: realPostersReady(firstPosters, posters) });
   } catch (error) {
     if (sequence !== catalogSequence || error?.name === 'AbortError') return;
+    stagedCatalog = null;
     els.grid.setAttribute('aria-busy', 'false');
     els.grid.classList.remove('updating');
     els.error.hidden = false;
@@ -491,6 +546,7 @@ async function loadCatalog({ animate = true, force = false } = {}) {
     els.status.textContent = els.grid.children.length ? 'Показаны прежние результаты' : '';
     if (!els.grid.children.length) els.pages.hidden = true;
     notice.finish({ failed: true, retryAvailable: false });
+    startup?.finish();
   }
 }
 
@@ -819,6 +875,7 @@ async function showDetail() {
   activeDetail = new AbortController();
   const controller = activeDetail;
   const sequence = ++detailSequence;
+  stagedDetail = null;
   root.dataset.route = 'detail';
   els.list.hidden = true;
   els.detail.hidden = false;
@@ -826,23 +883,29 @@ async function showDetail() {
   const loading = node('div', 'detail-loading');
   loading.setAttribute('role', 'status');
   setLoadingStatus(loading, 'Загружаем сведения…', { large: true });
+  startup?.setStatus('Загружаем сведения…');
   els.detailContent.replaceChildren(loading);
   const notice = startLoadingNotice(els.detailContent, { signal: controller.signal, onRetry: showDetail });
   try {
     const data = await fetchDetail(state.view, state.id, { signal: controller.signal });
     if (sequence !== detailSequence) return;
     const poster = makeDetailPoster(data);
+    stagedDetail = { data, poster, sequence };
     setLoadingStatus(loading, 'Загружаем постер…', { large: true });
-    const posters = await waitForPosters([poster], { signal: controller.signal });
+    startup?.setStatus('Загружаем постер…');
+    const posters = await waitForPosters([poster], posterWaitOptions(controller.signal));
     if (sequence !== detailSequence || controller.signal.aborted) return;
     const { recommendations, trailerBox, credits } = renderDetail(data, poster);
+    stagedDetail = null;
     notice.finish({ failed: posters.failed > 0 });
     if (posters.failed) els.detailContent.prepend(notice.element);
+    startup?.finish({ postersReady: realPostersReady([poster], posters) });
     loadCredits(data, credits, sequence, controller.signal);
     loadRecommendations(data, recommendations, sequence);
     loadTrailer(data, trailerBox, sequence, controller.signal);
   } catch (error) {
     if (sequence !== detailSequence || error?.name === 'AbortError') return;
+    stagedDetail = null;
     const box = node('div', 'detail-error');
     box.setAttribute('role', 'alert');
     box.append(node('h1', '', 'Не удалось открыть подробности'));
@@ -853,6 +916,7 @@ async function showDetail() {
     box.append(retry);
     els.detailContent.replaceChildren(box);
     notice.finish({ failed: true, retryAvailable: false });
+    startup?.finish();
   }
 }
 
@@ -880,6 +944,63 @@ function restoreList(scrollPosition = 0) {
       card?.focus({ preventScroll: true });
     }
   });
+}
+
+function expireInitialScreen() {
+  if (state.view) {
+    const staged = stagedDetail;
+    activeDetail?.abort();
+    activeRecommendations?.abort();
+    const sequence = ++detailSequence;
+    recommendationsSequence++;
+    stagedDetail = null;
+    if (staged) {
+      if (staged.poster.dataset.posterReady !== 'true') setPosterFallback(staged.poster);
+      activeDetail = new AbortController();
+      const { recommendations, trailerBox, credits } = renderDetail(staged.data, staged.poster);
+      const warning = startLoadingNotice(els.detailContent, { onRetry: showDetail });
+      warning.finish({ failed: true });
+      els.detailContent.prepend(warning.element);
+      loadCredits(staged.data, credits, sequence, activeDetail.signal);
+      loadRecommendations(staged.data, recommendations, sequence);
+      loadTrailer(staged.data, trailerBox, sequence, activeDetail.signal);
+    } else {
+      const error = node('div', 'detail-error');
+      error.setAttribute('role', 'alert');
+      error.append(node('h1', '', 'Не удалось открыть подробности'), node('p', '', 'Проверь соединение и попробуй ещё раз.'));
+      const retry = node('button', 'show', 'Повторить');
+      retry.type = 'button';
+      retry.addEventListener('click', showDetail);
+      error.append(retry);
+      els.detailContent.replaceChildren(error);
+      const warning = startLoadingNotice(els.detailContent, { onRetry: showDetail });
+      warning.finish({ failed: true, retryAvailable: false });
+    }
+    return;
+  }
+  const staged = stagedCatalog;
+  activeCatalog?.abort();
+  catalogSequence++;
+  stagedCatalog = null;
+  const hero = els.list.querySelector('.hero-image img');
+  if (hero && (!hero.complete || !hero.naturalWidth)) hero.hidden = true;
+  if (state.mode === 'search' && !state.q) return;
+  if (staged) {
+    for (const image of firstScreenPosters(staged.cards, els.grid)) {
+      if (image.dataset.posterReady !== 'true') setPosterFallback(image);
+    }
+    renderCatalog(staged.result, false, staged.cards);
+    const warning = startLoadingNotice(els.notice, { onRetry: () => loadCatalog({ force: true }) });
+    warning.finish({ failed: true });
+  } else {
+    els.grid.setAttribute('aria-busy', 'false');
+    els.grid.classList.remove('updating');
+    els.status.textContent = '';
+    els.error.hidden = false;
+    els.errorText.textContent = 'Не удалось получить данные TMDB. Проверь соединение и попробуй ещё раз.';
+    const warning = startLoadingNotice(els.notice, { onRetry: () => loadCatalog({ force: true }) });
+    warning.finish({ failed: true, retryAvailable: false });
+  }
 }
 
 els.theme.addEventListener('change', () => {
@@ -1097,6 +1218,8 @@ applyTheme();
 updateNetworkStatus();
 showInstallHint();
 renderControls();
+startup?.setRetryHandler(() => state.view ? showDetail() : loadCatalog({ force: true }));
+startup?.setTimeoutHandler(expireInitialScreen);
 if (state.view) showDetail();
 else restoreList(history.state?.scrollY || 0);
 ensureGenres(state.pickType);

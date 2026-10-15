@@ -3,6 +3,7 @@ export const FALLBACK_POSTER = 'img/noposter.jpg';
 
 export function setPosterFallback(image) {
   image.dataset.posterFailed = 'true';
+  delete image.dataset.posterReady;
   image.classList.add('is-placeholder');
   image.removeAttribute('srcset');
   image.loading = 'eager';
@@ -45,6 +46,7 @@ export function waitForPosters(images, { signal, timeoutMs = POSTER_TIMEOUT_MS, 
     const finish = record => {
       if (done || record.ready) return;
       record.ready = true;
+      record.image.dataset.posterReady = 'true';
       if (--remaining) return;
       done = true;
       cleanup();
