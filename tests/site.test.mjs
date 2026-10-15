@@ -14,7 +14,7 @@ test('URL state round trips search and detail context', () => {
 });
 
 test('invalid URL values fall back to safe list defaults', () => {
-  const state = parseState('https://example.com/?mode=bad&page=-1&view=person&id=6&genres=abc,,12x&rating=10');
+  const state = parseState('https://example.com/?mode=bad&page=-1&view=unknown&id=6&genres=abc,,12x&rating=10');
   assert.deepEqual(state, DEFAULT_STATE);
 });
 

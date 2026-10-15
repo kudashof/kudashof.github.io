@@ -3,13 +3,14 @@ import { editorialCollection } from './editorial.js?v=20261007perf2';
 export const DEFAULT_STATE = Object.freeze({
   mode: 'pick', q: '', searchType: 'all', pickType: 'movie',
   genres: [], period: '', rating: '', sort: 'popular', list: 'trending-movie', library: 'later', page: 1,
-  view: '', id: 0,
+  view: '', id: 0, role: 'acting', personTab: 'movie', personSort: 'popular', shows: false,
 });
 
 const PERIODS = new Set(['', 'last5', '2020s', '2010s', '2000s', '1990s', 'before1990']);
 const RATINGS = new Set(['', '6', '7', '8']);
 const SORTS = new Set(['popular', 'rating', 'newest']);
-const SEARCH_TYPES = new Set(['all', 'movie', 'tv']);
+const SEARCH_TYPES = new Set(['all', 'movie', 'tv', 'person']);
+const PERSON_SORTS = new Set(['popular', 'newest', 'rating']);
 const LISTS = new Set(['trending-movie', 'popular-movie', 'top-rated-movie', 'now-playing-movie', 'upcoming-movie', 'trending-tv', 'popular-tv', 'top-rated-tv']);
 const LIBRARY_SECTIONS = new Set(['later', 'favorites', 'watched']);
 
@@ -25,7 +26,7 @@ export function parseState(input) {
   const page = Number(params.get('page'));
   const id = Number(params.get('id'));
   const view = params.get('view');
-  const validDetail = (view === 'movie' || view === 'tv') && Number.isInteger(id) && id > 0;
+  const validDetail = (view === 'movie' || view === 'tv' || view === 'person') && Number.isSafeInteger(id) && id > 0;
   return {
     mode,
     q: (params.get('q') || '').trim().slice(0, 200),
@@ -40,11 +41,15 @@ export function parseState(input) {
     page: mode === 'lists' && editorialCollection(params.get('list')) ? 1 : Number.isInteger(page) && page > 0 ? Math.min(page, 500) : 1,
     view: validDetail ? view : '',
     id: validDetail ? id : 0,
+    role: validDetail && view === 'person' && params.get('role') === 'directing' ? 'directing' : 'acting',
+    personTab: validDetail && view === 'person' && params.get('ptab') === 'tv' ? 'tv' : 'movie',
+    personSort: validDetail && view === 'person' && PERSON_SORTS.has(params.get('psort')) ? params.get('psort') : 'popular',
+    shows: validDetail && view === 'person' && params.get('shows') === '1',
   };
 }
 
 export function listState(state) {
-  return { ...state, view: '', id: 0 };
+  return { ...state, view: '', id: 0, role: 'acting', personTab: 'movie', personSort: 'popular', shows: false };
 }
 
 export function stateUrl(state, currentUrl) {
@@ -68,6 +73,12 @@ export function stateUrl(state, currentUrl) {
   if (state.view && state.id) {
     url.searchParams.set('view', state.view);
     url.searchParams.set('id', String(state.id));
+    if (state.view === 'person') {
+      if (state.role === 'directing') url.searchParams.set('role', 'directing');
+      if (state.personTab === 'tv') url.searchParams.set('ptab', 'tv');
+      if (state.personSort !== 'popular') url.searchParams.set('psort', state.personSort);
+      if (state.shows) url.searchParams.set('shows', '1');
+    }
   }
   return url;
 }
