@@ -1,9 +1,9 @@
-const CACHE_NAME = 'movie-db-shell-v23';
+const CACHE_NAME = 'movie-db-shell-v26';
 const APP_SHELL = [
   './',
   './index.html',
-  './main.css?v=20261012people4',
-  './fetchscript.js?v=20261015people1',
+  './main.css?v=20261015people4',
+  './fetchscript.js?v=20261015people3',
   './spinner.js?v=20261012spinner7',
   './spinner.css?v=20261012spinner7',
   './poster-readiness.js?v=20261012spinner7',

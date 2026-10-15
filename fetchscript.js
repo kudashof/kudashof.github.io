@@ -1084,7 +1084,7 @@ function renderPerson(data) {
   const heading = node('h1', '', person.name);
   heading.id = 'person-title';
   heading.tabIndex = -1;
-  intro.append(node('p', 'detail-kicker', 'Люди кино'), heading, node('p', 'person-subtitle', 'Работы по данным TMDB'));
+  intro.append(node('p', 'detail-kicker', 'Люди кино'), heading);
   const roleButtons = node('div', 'person-roles');
   roleButtons.setAttribute('role', 'group');
   roleButtons.setAttribute('aria-label', 'Участие');
@@ -1175,7 +1175,6 @@ function renderPersonWorks(data) {
   if (!works) return;
   const role = state.role;
   const type = state.personTab;
-  els.personContent.querySelector('.person-subtitle').textContent = `${role === 'directing' ? 'Режиссура' : 'В ролях'} · Работы по данным TMDB`;
   const active = personWorks(credits, { role, type, sort: state.personSort, shows: state.shows });
   for (const button of els.personContent.querySelectorAll('[data-role]')) {
     button.setAttribute('aria-pressed', String(button.dataset.role === role));
