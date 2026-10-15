@@ -40,13 +40,13 @@
   <link rel="modulepreload" href="library.js?v=20261007perf2">
   <link rel="modulepreload" href="share.js?v=20261007perf2">
   <link rel="modulepreload" href="editorial.js?v=20261007perf2">
-  <script type="module" src="fetchscript.js?v=20261012spinner7"></script>
+  <script type="module" src="fetchscript.js?v=20261015copy1"></script>
 </head>
 <body>
   <div id="startup-overlay" class="startup-overlay" role="status" aria-live="polite" aria-label="Загрузка сайта">
     <div class="startup-overlay__content">
       <span class="cinema-spinner cinema-spinner--large" aria-hidden="true"><img class="cinema-spinner__core" src="assets/pwa-icon.svg" width="32" height="32" alt=""></span>
-      <p id="startup-status">Загружаем первый экран…</p>
+      <p id="startup-status">Готовим афишу. Попкорн — по желанию.</p>
       <div id="startup-notice" class="startup-overlay__notice" hidden><p id="startup-notice-text"></p><button id="startup-retry" type="button">Повторить загрузку</button></div>
     </div>
   </div>
@@ -54,7 +54,6 @@
     (() => {
       const root = document.documentElement;
       const overlay = document.querySelector('#startup-overlay');
-      const status = document.querySelector('#startup-status');
       const notice = document.querySelector('#startup-notice');
       const noticeText = document.querySelector('#startup-notice-text');
       const retryButton = document.querySelector('#startup-retry');
@@ -156,7 +155,6 @@
       const api = {
         isActive: () => !closed && !ready,
         remainingMs: () => Math.max(0, 15000 - elapsed(attemptMs)),
-        setStatus: text => { if (!closed) status.textContent = text; },
         setRetryHandler: handler => { retryHandler = handler; },
         setTimeoutHandler: handler => { timeoutHandler = handler; },
         finish: ({ postersReady = false } = {}) => {
