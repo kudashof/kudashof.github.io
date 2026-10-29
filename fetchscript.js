@@ -1,4 +1,4 @@
-import { fetchCatalog, fetchCredits, fetchDetail, fetchGenres, fetchMedia, fetchPerson, fetchRecommendations, fetchTrailer, formatRating, imageUrl, personWorks, posterSrcset, READY_LISTS } from './tmdb.js?v=20261012people4';
+import { fetchCatalog, fetchCredits, fetchDetail, fetchGenres, fetchMedia, fetchPerson, fetchRecommendations, fetchTrailer, formatRating, imageUrl, personWorks, posterSrcset, READY_LISTS } from './tmdb.js?v=20261030search1';
 import { catalogKey, DEFAULT_STATE, listState, parseState, stateUrl } from './state.js?v=20261012people4';
 import { detailFacts, detailMore } from './detail-metadata.js?v=20261012people4';
 import { LIBRARY_SECTIONS, libraryItems, libraryState, toggleLibraryState } from './library.js?v=20261007perf2';
@@ -199,7 +199,7 @@ function renderControls() {
   const list = collection || READY_LISTS[state.list] || READY_LISTS['trending-movie'];
   setPageMeta(
     search && state.q ? `Поиск: ${state.q} — Что посмотреть` : lists ? `${list.title} — Что посмотреть` : mine ? `${LIBRARY_SECTIONS[state.library].label} — Что посмотреть` : 'Что посмотреть — фильмы и сериалы',
-    search && state.q ? `Результаты поиска фильмов и сериалов по запросу «${state.q}» на основе данных TMDB.` : collection ? collection.promise : lists ? `${list.title} по данным TMDB.` : mine ? `${LIBRARY_SECTIONS[state.library].label}. Данные хранятся только в этом браузере.` : 'Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.',
+    search && state.q ? `Результаты поиска фильмов, сериалов и людей по запросу «${state.q}» на основе данных TMDB.` : collection ? collection.promise : lists ? `${list.title} по данным TMDB.` : mine ? `${LIBRARY_SECTIONS[state.library].label}. Данные хранятся только в этом браузере.` : 'Поиск фильмов и сериалов и идеи для просмотра по данным TMDB.',
   );
   els.searchMode.classList.toggle('active', search);
   els.pickMode.classList.toggle('active', !search && !lists && !mine);
@@ -228,12 +228,15 @@ function renderControls() {
   setChoiceButtons('[data-library]', state.library, 'library');
   els.title.textContent = search ? (state.searchType === 'person' ? 'Найденные люди' : 'Результаты поиска') : lists ? list.title : mine ? LIBRARY_SECTIONS[state.library].label : 'Идеи для просмотра';
   document.querySelector('.section-heading>span').textContent = search && state.searchType === 'person' ? 'Люди TMDB' : 'Оценки TMDB';
-  document.querySelector('.hero').setAttribute('aria-label', state.searchType === 'person' && search ? 'Поиск людей кино' : 'Поиск фильма или сериала');
-  els.searchLabel.textContent = state.searchType === 'person' ? 'Имя актёра или режиссёра' : 'Название фильма или сериала';
+  document.querySelector('.hero').setAttribute('aria-label', search && state.searchType === 'person' ? 'Поиск людей кино' : search && state.searchType === 'all' ? 'Поиск фильма, сериала или человека' : 'Поиск фильма или сериала');
+  els.searchLabel.textContent = state.searchType === 'person' ? 'Имя актёра или режиссёра' : state.searchType === 'all' ? 'Название или имя актёра/режиссёра' : 'Название фильма или сериала';
   els.searchInput.placeholder = els.searchLabel.textContent;
-  document.querySelector('.search-hint').textContent = state.searchType === 'person' ? 'Поиск людей по данным TMDB' : 'Поиск по названию без фильтров подбора';
+  document.querySelector('.search-hint').textContent = state.searchType === 'person' ? 'Поиск людей по данным TMDB' : state.searchType === 'all' ? 'Фильмы, сериалы, актёры и режиссёры по данным TMDB' : 'Поиск по названию без фильтров подбора';
   els.catalogShare.replaceChildren(makeShareControls({ catalog: true }));
-  els.searchInput.value = state.q;
+  // Preserve a space just typed after a word while the debounced URL uses a trimmed query.
+  if (document.activeElement !== els.searchInput || els.searchInput.value.trim() !== state.q) {
+    els.searchInput.value = state.q;
+  }
   draftPickType = state.pickType;
   draftSearchType = state.searchType;
   setChoiceButtons('[data-pick-type]', draftPickType, 'pickType');
@@ -1356,10 +1359,11 @@ els.searchForm.addEventListener('submit', event => {
 });
 function queueSearch() {
   if (searchComposing) return;
-  let q = els.searchInput.value.trim().slice(0, 200);
+  const input = els.searchInput.value;
+  let q = input.trim().slice(0, 200);
   if (state.mode !== 'search') {
     switchRoute({ ...state, mode: 'search', q: '', searchType: draftSearchType, page: 1 }, { scrollTop: false });
-    els.searchInput.value = q;
+    els.searchInput.value = input;
   }
   clearTimeout(searchTimer);
   activeCatalog?.abort(); catalogSequence++;
