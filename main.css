@@ -224,6 +224,30 @@ html[data-route=detail] .list-view{display:none}
 }
 @media(max-width:335px){.theme select{max-width:92px}.detail-poster{width:58%}}
 
+/* A grid child can retain its intrinsic width on narrow WebKit viewports.
+   Keep the page and detail column within the visual viewport instead of
+   letting a long TMDB value make the whole document horizontally pannable. */
+@media(max-width:760px){
+  .site-shell{width:100%;min-width:0;overflow-x:hidden}
+  @supports(overflow:clip){.site-shell{overflow-x:clip}}
+  /* iOS Safari zooms focused text fields smaller than 16px and keeps the
+     enlarged visual viewport while this SPA switches to a detail page. */
+  .input input{font-size:16px}
+  .list-view,.catalog,.grid,.detail-page,#detail-content,.detail-layout,
+  .detail-layout>div,.person-page,#person-content,.person-header,
+  .person-header>div,.person-controls{min-width:0;max-width:100%}
+  .detail-layout{grid-template-columns:minmax(0,1fr)}
+  .detail-layout>div{width:100%}
+  .detail-facts{grid-template-columns:minmax(0,1fr)}
+  .detail-page h1,.detail-overview,.detail-kicker,.detail-fact,
+  .person-page h1,.search-hint,.section-heading h2{overflow-wrap:anywhere}
+  .search-hint,.section-heading h2{min-width:0}
+  .card{width:100%}
+}
+@media(min-width:560px) and (max-width:760px){
+  .detail-layout{grid-template-columns:minmax(0,190px) minmax(0,1fr)}
+}
+
 /* People, live search, and richer details keep the approved Variant 3 palette. */
 .hero form{position:relative}.search-box{position:relative;flex:1;min-width:0}.search-box>.input{width:100%}.search-suggestions{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:8;max-height:min(48vh,410px);overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:6px;box-shadow:0 18px 35px #0003}.search-suggestions[hidden]{display:none}.search-option{display:flex;align-items:center;gap:12px;min-height:54px;padding:7px 12px;cursor:pointer}.search-option+.search-option{border-top:1px solid var(--soft)}.search-option:hover,.search-option[aria-selected=true]{background:var(--soft)}.search-option[aria-selected=true]{box-shadow:inset 4px 0 var(--lime)}.search-option img{width:28px;height:40px;object-fit:cover;flex:none;background:var(--soft)}.search-option span{display:grid;gap:3px;min-width:0}.search-option strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}.search-option small{font-size:12px;color:var(--muted)}
 #search-controls .types{flex-wrap:wrap}.person-result .poster{aspect-ratio:2/3}.person-result .poster img{object-position:center 25%}.person-known-for{font-size:12px;line-height:1.45;color:var(--muted)}.credit-role{font-size:12px;line-height:1.45;color:var(--muted);margin-top:7px!important}
