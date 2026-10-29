@@ -149,7 +149,9 @@ export async function fetchCatalog(state, options = {}) {
       : buildDiscoverRequest(state);
   const data = await apiGet(request.path, request.params, options);
   const items = Array.isArray(data.results) ? data.results.map(item =>
-    state.mode === 'search' && state.searchType === 'person' ? normalizePerson(item) : normalizeMedia(item, request.fallbackType)).filter(Boolean) : [];
+    state.mode === 'search' && (state.searchType === 'person' || (state.searchType === 'all' && item?.media_type === 'person'))
+      ? normalizePerson(item)
+      : normalizeMedia(item, request.fallbackType)).filter(Boolean) : [];
   return {
     items,
     page: Number.isInteger(data.page) ? data.page : state.page,
