@@ -21,6 +21,24 @@ test('person search uses a distinct endpoint and keeps same-name people separate
   assert.equal(urls[0].searchParams.get('include_adult'), 'false');
 });
 
+test('unified search keeps people beside films and series with navigable IDs', async () => {
+  const state = { ...DEFAULT_STATE, mode: 'search', searchType: 'all', q: '  Tom Hanks  ' };
+  assert.equal(buildSearchRequest(state).path, '/search/multi');
+  let url;
+  const result = await fetchCatalog(state, { fetchImpl: async request => {
+    url = new URL(request);
+    return { ok: true, json: async () => ({ page: 1, total_pages: 1, results: [
+      { id: 10, media_type: 'movie', title: 'Фильм' },
+      { id: 31, media_type: 'person', name: 'Tom Hanks', known_for_department: 'Acting', known_for: [] },
+      { id: 20, media_type: 'tv', name: 'Сериал' },
+      { id: 99, media_type: 'person', name: 'Adult', adult: true },
+    ] }) };
+  } });
+  assert.equal(url.searchParams.get('query'), 'Tom Hanks');
+  assert.deepEqual(result.items.map(item => [item.type, item.id]), [['movie', 10], ['person', 31], ['tv', 20]]);
+  assert.equal(parseState(stateUrl({ ...state, q: 'Tom Hanks', view: 'person', id: 31 }, 'https://example.com/').href).id, 31);
+});
+
 test('director credits exclude other jobs, and repeated TV roles share one card', () => {
   const credits = normalizePersonCredits({
     cast: [
